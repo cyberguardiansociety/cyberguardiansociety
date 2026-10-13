@@ -1,0 +1,64 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+.next/
+out/
+next-env.d.ts
+
+# production
+build/
+dist/
+
+# misc
+.DS_Store
+*.pem
+*.key
+*.p12
+*.pfx
+*.tsbuildinfo
+
+# local credentials and secrets
+.env*
+!/.env.example
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+*.log.*
+
+# local env files — never commit real secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# runtime data — never commit (contains password hashes and applicant PII)
+/data/cgs.db
+/data/cgs.db.tmp
+/data/maintenance-settings.json
+/data/maintenance-settings.json.*.tmp
+/data/private/
+/data/managed-sessions.json
+/data/managed-content.json
+/data/newsletter-subscribers.json
+/data/admin-2fa-store.json
+/data/security-lockouts.json
+/data/*.db*
+/data/*.json
+# uploaded public content images are created at runtime
+/public/uploads/
+
+# editors
+.idea/
+.vscode/
+*.swp
+
+# logs
+logs/
+*.log
