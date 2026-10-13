@@ -27,7 +27,7 @@ function redactSensitiveMetadata(value: unknown, key = ''): unknown {
   return value
 }
 
-if (!fs.existsSync(logsDir)) {
+if (process.env.VERCEL !== '1' && !fs.existsSync(logsDir)) {
   try {
     fs.mkdirSync(logsDir, { recursive: true })
   } catch {}
@@ -51,6 +51,32 @@ export type SecurityEventType =
   | 'UNAUTHORIZED_ACCESS'
   | 'IP_BLOCKED'
 
+const consoleTransport = new winston.transports.Console({
+  format: winston.format.combine(
+    winston.format.colorize(),
+    winston.format.printf(({ timestamp, level, message, event, ip, user, ...rest }) => {
+      const userStr = user ? ` [user=${user}]` : ''
+      const ipStr = ip ? ` [ip=${ip}]` : ''
+      const eventStr = event ? ` [event=${event}]` : ''
+      const restStr = Object.keys(rest).length ? ` ${JSON.stringify(rest)}` : ''
+      return `[${timestamp}] ${level}:${eventStr}${userStr}${ipStr} ${message}${restStr}`
+    }),
+  ),
+})
+
+const fileTransports = process.env.VERCEL === '1'
+  ? []
+  : [
+      new winston.transports.File({
+        filename: path.join(logsDir, 'security-audit.log'),
+        level: 'info',
+      }),
+      new winston.transports.File({
+        filename: path.join(logsDir, 'security-alerts.log'),
+        level: 'warn',
+      }),
+    ]
+
 export const securityLogger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
@@ -58,28 +84,7 @@ export const securityLogger = winston.createLogger({
     winston.format.json(),
   ),
   defaultMeta: { service: 'cgs-security-gateway' },
-  transports: [
-    new winston.transports.File({
-      filename: path.join(logsDir, 'security-audit.log'),
-      level: 'info',
-    }),
-    new winston.transports.File({
-      filename: path.join(logsDir, 'security-alerts.log'),
-      level: 'warn',
-    }),
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.printf(({ timestamp, level, message, event, ip, user, ...rest }) => {
-          const userStr = user ? ` [user=${user}]` : ''
-          const ipStr = ip ? ` [ip=${ip}]` : ''
-          const eventStr = event ? ` [event=${event}]` : ''
-          const restStr = Object.keys(rest).length ? ` ${JSON.stringify(rest)}` : ''
-          return `[${timestamp}] ${level}:${eventStr}${userStr}${ipStr} ${message}${restStr}`
-        }),
-      ),
-    }),
-  ],
+  transports: [...fileTransports, consoleTransport],
 })
 
 export function logSecurityEvent(

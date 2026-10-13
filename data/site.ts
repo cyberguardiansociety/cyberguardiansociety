@@ -9,7 +9,7 @@ export const org = {
   tagline: 'Defend. Learn. Conquer.',
   logo: '/cgs-logo-official.png',
   description:
-    'Cyber Guardian Society is an independently volunteer-based cybersecurity firm. Our members share intelligence, build capability and strengthen collective defense without shareholders, sponsors or external owners.',
+    'Cyber Guardian Society is an independent student-led cybersecurity community. Our members share intelligence, build capability and strengthen collective defense without shareholders, sponsors or external owners.',
   joinHref: '/join-cgs',
   contactHref: '/contact',
   email: 'cyberguardiansociety@gmail.com',
@@ -104,7 +104,7 @@ export const onlineSessions: { current: OnlineSession[]; upcoming: OnlineSession
 export const hero = {
   eyebrow: 'Cyber Guardian Society',
   headline: 'Security is stronger when knowledge moves.',
-  sub: 'A volunteer-run community where defenders share what they know, practice together, and respond faster — because no team should face a threat alone.',
+  sub: 'An independent student-led community where defenders share what they know, practice together, and respond faster — because no team should face a threat alone.',
   primaryCta: { label: 'Become a member', href: '/join-cgs' },
   secondaryCta: { label: 'See what we do', href: '/services' },
   image: images.heroSoc,
@@ -178,12 +178,12 @@ export const finalCta = {
 
 export const aboutPage = {
   eyebrow: 'Who we are',
-  headline: 'Volunteer-run. Practitioner-led. No shareholders.',
-  body: 'CGS brings defenders together so no team faces a shared threat alone. Every workshop, drill, and response is led by volunteers — people who give their own time because they believe defense works better as a team sport.',
+  headline: 'Independent student-led. Practitioner-led. No shareholders.',
+  body: 'CGS brings defenders together so no team faces a shared threat alone. Our independent student-led team and community practitioners lead workshops, drills, and responses to strengthen collective defense.',
   image: images.aboutBoardroom,
   badge: 'Member-led since day one',
   heroMeta: [
-    { value: 'Volunteer-run', label: 'No shareholders or sponsors' },
+    { value: 'Independent student-led', label: 'No shareholders or sponsors' },
     { value: 'Open membership', label: 'Applications reviewed by peers' },
     { value: 'Peer-led', label: 'Shared practice across the community' },
   ],
@@ -206,7 +206,7 @@ export const aboutPage = {
   },
   cta: {
     heading: 'Want to help shape what CGS becomes?',
-    sub: 'Join a volunteer-led community focused on shared cyber defense.',
+    sub: 'Join an independent student-led community focused on shared cyber defense.',
     primaryCta: { label: 'Apply for membership', href: '/join-cgs' },
     secondaryCta: { label: 'Ask us anything', href: '/contact' },
   },
@@ -358,7 +358,7 @@ export const teamData: TeamMember[] = [
     roleBadge: 'FOUNDER / CEO',
     title: 'Lead Security Consultant',
     subtitle: 'Founder / CEO',
-    bio: 'Shayan founded CGS to turn shared cyber knowledge into a strong, volunteer-led defense network. He guides the society with a focus on strategy, community growth, and high-trust leadership.',
+    bio: 'Shayan founded CGS to turn shared cyber knowledge into a strong, independent student-led defense network. He guides the society with a focus on strategy, community growth, and high-trust leadership.',
     photo: '/team/shayan-ahmed.png',
     photoFocus: 'center 18%',
     skills: ['Cybersecurity', 'Leadership', 'Community', 'Strategy'],
@@ -771,7 +771,7 @@ const contactDetails: readonly {
   },
   {
     label: 'Contact hours',
-    value: 'Volunteer-led; typical reply within 1-2 business days',
+    value: 'Independent student-led; typical reply within 1-2 business days',
     icon: 'hours',
   },
   {
@@ -992,9 +992,9 @@ export const joinPage = {
 
 export const footer = {
   description:
-    'CGS is a volunteer-run cybersecurity community. Every workshop, drill, and response is led by people who give their own time — no shareholders, no sponsors, no external owners.',
+    'CGS is an independent student-led cybersecurity community. Our students and practitioners lead workshops, drills, and responses to strengthen collective defense — no shareholders, no sponsors, no external owners.',
   copyright: `© ${new Date().getFullYear()} Cyber Guardian Society. All rights reserved.`,
-  credit: 'Independently volunteer-run.',
+  credit: 'Independent student-led.',
   columns: [
     {
       title: 'Product',

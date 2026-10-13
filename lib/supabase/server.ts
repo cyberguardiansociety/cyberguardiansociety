@@ -1,9 +1,11 @@
-import { createSqliteClient, type SqliteClient } from '@/lib/db/sqlite-adapter'
+import type { SqliteClient } from '@/lib/db/sqlite-adapter'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 /**
- * Supabase-compatible server client backed by the local SQLite database.
- * The async signature matches the previous cookie-based Supabase server client.
+ * Creates the server-side application database client. Cookie authentication is
+ * handled by the site's signed admin session; database reads use the service
+ * client only from server code.
  */
 export async function createSupabaseServerClient(): Promise<SqliteClient> {
-  return createSqliteClient()
+  return createSupabaseServiceClient()
 }

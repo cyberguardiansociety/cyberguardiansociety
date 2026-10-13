@@ -26,64 +26,7 @@ set
   end
 where slug is null or ends_at is null;
 
-  create or replace function public.audit_attendance_portal_change()
-  returns trigger
-  language plpgsql
-  security definer
-  set search_path = pg_catalog, public
-  as $$
-
-    changed_row jsonb;
-    changed_id text;
 create unique index if not exists online_sessions_slug_unique_idx
-    changed_row := case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end;
-    changed_id := coalesce(
-      changed_row ->> 'id',
-      concat_ws(':', changed_row ->> 'session_id', changed_row ->> 'registrant_id', changed_row ->> 'speaker_id'),
-      'unknown'
-    );
-
-    insert into public.admin_audit_log (actor_id, action, entity, entity_id, details)
-    values (
-      (select auth.uid()),
-      lower(tg_op),
-      tg_table_name,
-      changed_id,
-      jsonb_build_object('operation', lower(tg_op))
-    );
-
-    if tg_op = 'DELETE' then return old; end if;
-    return new;
-  end;
-  $$;
-
-  revoke all on function public.audit_attendance_portal_change() from public;
-  grant execute on function public.audit_attendance_portal_change() to authenticated;
-
-  drop trigger if exists cgs_registrants_audit on public.cgs_registrants;
-  create trigger cgs_registrants_audit after insert or update or delete on public.cgs_registrants
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_session_registrations_audit on public.cgs_session_registrations;
-  create trigger cgs_session_registrations_audit after insert or update or delete on public.cgs_session_registrations
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_attendance_records_audit on public.cgs_attendance_records;
-  create trigger cgs_attendance_records_audit after insert or update or delete on public.cgs_attendance_records
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_speakers_audit on public.cgs_speakers;
-  create trigger cgs_speakers_audit after insert or update or delete on public.cgs_speakers
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_session_speakers_audit on public.cgs_session_speakers;
-  create trigger cgs_session_speakers_audit after insert or update or delete on public.cgs_session_speakers
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_google_sheet_connections_audit on public.cgs_google_sheet_connections;
-  create trigger cgs_google_sheet_connections_audit after insert or update or delete on public.cgs_google_sheet_connections
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_google_sync_runs_audit on public.cgs_google_sync_runs;
-  create trigger cgs_google_sync_runs_audit after insert or update or delete on public.cgs_google_sync_runs
-    for each row execute function public.audit_attendance_portal_change();
-  drop trigger if exists cgs_portal_settings_audit on public.cgs_portal_settings;
-  create trigger cgs_portal_settings_audit after insert or update or delete on public.cgs_portal_settings
-    for each row execute function public.audit_attendance_portal_change();
   on public.online_sessions (slug);
 create index if not exists online_sessions_management_schedule_idx
   on public.online_sessions (management_status, starts_at desc)
@@ -200,6 +143,65 @@ insert into public.cgs_portal_settings (key, value) values
   ('speaker_coming_soon', 'false'),
   ('timezone', 'Asia/Karachi')
 on conflict (key) do nothing;
+
+create or replace function public.audit_attendance_portal_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  changed_row jsonb;
+  changed_id text;
+begin
+  changed_row := case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(new) end;
+  changed_id := coalesce(
+    changed_row ->> 'id',
+    concat_ws(':', changed_row ->> 'session_id', changed_row ->> 'registrant_id', changed_row ->> 'speaker_id'),
+    'unknown'
+  );
+
+  insert into public.admin_audit_log (actor_id, action, entity, entity_id, details)
+  values (
+    (select auth.uid()),
+    lower(tg_op),
+    tg_table_name,
+    changed_id,
+    jsonb_build_object('operation', lower(tg_op))
+  );
+
+  if tg_op = 'DELETE' then return old; end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.audit_attendance_portal_change() from public;
+grant execute on function public.audit_attendance_portal_change() to authenticated;
+
+drop trigger if exists cgs_registrants_audit on public.cgs_registrants;
+create trigger cgs_registrants_audit after insert or update or delete on public.cgs_registrants
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_session_registrations_audit on public.cgs_session_registrations;
+create trigger cgs_session_registrations_audit after insert or update or delete on public.cgs_session_registrations
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_attendance_records_audit on public.cgs_attendance_records;
+create trigger cgs_attendance_records_audit after insert or update or delete on public.cgs_attendance_records
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_speakers_audit on public.cgs_speakers;
+create trigger cgs_speakers_audit after insert or update or delete on public.cgs_speakers
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_session_speakers_audit on public.cgs_session_speakers;
+create trigger cgs_session_speakers_audit after insert or update or delete on public.cgs_session_speakers
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_google_sheet_connections_audit on public.cgs_google_sheet_connections;
+create trigger cgs_google_sheet_connections_audit after insert or update or delete on public.cgs_google_sheet_connections
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_google_sync_runs_audit on public.cgs_google_sync_runs;
+create trigger cgs_google_sync_runs_audit after insert or update or delete on public.cgs_google_sync_runs
+  for each row execute function public.audit_attendance_portal_change();
+drop trigger if exists cgs_portal_settings_audit on public.cgs_portal_settings;
+create trigger cgs_portal_settings_audit after insert or update or delete on public.cgs_portal_settings
+  for each row execute function public.audit_attendance_portal_change();
 
 alter table public.cgs_registrants enable row level security;
 alter table public.cgs_session_registrations enable row level security;

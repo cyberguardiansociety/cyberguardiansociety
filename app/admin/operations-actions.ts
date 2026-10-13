@@ -47,21 +47,17 @@ async function replaceSessionSpeakers(
   sessionId: string,
   speakerIds: string[],
 ) {
-  try {
-    await supabase.from('cgs_session_speakers').delete().eq('session_id', sessionId)
-    for (const speakerId of speakerIds) {
-      if (speakerId) {
-        await supabase.from('cgs_session_speakers').insert({
-          session_id: sessionId,
-          speaker_id: speakerId,
-          sort_order: 0,
-        })
-      }
-    }
-  } catch (err) {
-    console.warn('[sessions] Failed to sync session speakers:', err)
+  const { error: deleteError } = await supabase.from('cgs_session_speakers').delete().eq('session_id', sessionId)
+  if (deleteError) throw new Error('Session speakers could not be replaced.')
+  for (const speakerId of speakerIds) {
+    if (!speakerId) continue
+    const { error } = await supabase.from('cgs_session_speakers').insert({
+      session_id: sessionId,
+      speaker_id: speakerId,
+      sort_order: 0,
+    })
+    if (error) throw new Error('Session speakers could not be replaced.')
   }
-  return true
 }
 
 function parseSession(formData: FormData) {
@@ -142,11 +138,8 @@ export async function createManagedSession(formData: FormData) {
     supabase
   )
 
-  if (speakerIds.length) {
-    try {
-      await replaceSessionSpeakers(supabase, savedSession.id, speakerIds)
-    } catch {}
-  }
+  try { await replaceSessionSpeakers(supabase, savedSession.id, speakerIds) }
+  catch { fail('sessions', 'speaker-save') }
 
   try {
     const { logAudit } = await import('@/lib/supabase/audit')
@@ -182,11 +175,8 @@ export async function updateManagedSession(formData: FormData) {
     supabase
   )
 
-  if (speakerIds.length) {
-    try {
-      await replaceSessionSpeakers(supabase, id, speakerIds)
-    } catch {}
-  }
+  try { await replaceSessionSpeakers(supabase, id, speakerIds) }
+  catch { fail('sessions', 'speaker-save') }
 
   try {
     const { logAudit } = await import('@/lib/supabase/audit')

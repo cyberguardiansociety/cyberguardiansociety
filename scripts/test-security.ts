@@ -108,35 +108,35 @@ async function runTests() {
   const limitPrefix = `test-limit-${Date.now()}`
 
   for (let i = 1; i <= 5; i++) {
-    const res = checkRateLimit(testIp, limitPrefix, 5, 10000)
+    const res = await checkRateLimit(testIp, limitPrefix, 5, 10000)
     assert(res.allowed === true, `Attempt ${i}/5 is allowed`)
   }
 
-  const blockedRes = checkRateLimit(testIp, limitPrefix, 5, 10000)
+  const blockedRes = await checkRateLimit(testIp, limitPrefix, 5, 10000)
   assert(blockedRes.allowed === false, 'Attempt 6/5 is blocked with 429 rate limit')
   assert(blockedRes.remaining === 0, 'Remaining attempts is 0')
 
   // ── 6. Account Lockout & Progressive Escalation ──
   console.log('\n6. Account Lockout & CLI Recovery:')
   const lockUser = 'lock-target@example.invalid'
-  unlockAccount(lockUser)
+  await unlockAccount(lockUser)
 
-  assert(!isAccountLocked(lockUser).locked, 'User starts in unlocked state')
+  assert(!(await isAccountLocked(lockUser)).locked, 'User starts in unlocked state')
 
   for (let i = 1; i <= 4; i++) {
-    const fail = recordFailedLogin(lockUser)
+    const fail = await recordFailedLogin(lockUser)
     assert(!fail.isNowLocked, `Failed login ${i}/5 does not lock account yet`)
   }
 
-  const lockTrigger = recordFailedLogin(lockUser)
+  const lockTrigger = await recordFailedLogin(lockUser)
   assert(lockTrigger.isNowLocked === true, 'Failed login 5/5 triggers account lockout')
-  assert(isAccountLocked(lockUser).locked === true, 'Account is verified locked')
+  assert((await isAccountLocked(lockUser)).locked === true, 'Account is verified locked')
 
-  const unlocked = unlockAccount(lockUser)
+  const unlocked = await unlockAccount(lockUser)
   assert(unlocked === true, 'CLI unlockAccount clears lockout')
-  assert(!isAccountLocked(lockUser).locked, 'Account is now active and unlocked')
+  assert(!(await isAccountLocked(lockUser)).locked, 'Account is now active and unlocked')
 
-  recordSuccessfulLogin(lockUser)
+  await recordSuccessfulLogin(lockUser)
 
   console.log('\n========================================')
   console.log(`TEST RUN COMPLETE: ${passed} PASSED, ${failed} FAILED`)

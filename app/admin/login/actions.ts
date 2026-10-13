@@ -15,8 +15,7 @@ import {
 } from '@/lib/security/session'
 import { logSecurityEvent } from '@/lib/security/logger'
 import { comparePassword } from '@/lib/security/password'
-import { selectOne } from '@/lib/db'
-import { initializeDatabase } from '@/lib/db'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 /**
  * Step 1: Primary Authentication (Email + Password) with Lockout and Rate Limiting
@@ -24,11 +23,8 @@ import { initializeDatabase } from '@/lib/db'
 export async function signIn(formData: FormData) {
   const clientIp = await extractClientIp()
 
-  // Initialize database if needed
-  await initializeDatabase()
-
   // 1. IP Rate Limiting (5 attempts / 15 minutes)
-  const rateLimit = checkRateLimit(clientIp, 'admin-login-post', 5, 15 * 60 * 1000)
+  const rateLimit = await checkRateLimit(clientIp, 'admin-login-post', 5, 15 * 60 * 1000)
   if (!rateLimit.allowed) {
     redirect(adminUrl('/login', { error: 'rate-limit' }))
   }
@@ -53,58 +49,65 @@ export async function signIn(formData: FormData) {
   }
 
   // 2. Account Lockout Check
-  const lockStatus = isAccountLocked(identifier)
+  const lockStatus = await isAccountLocked(identifier)
   if (lockStatus.locked) {
     await performDummyTimingWork()
     redirect(adminUrl('/login', { error: 'locked' }))
   }
 
   // 3. Look up admin user in database
-  const result = await selectOne<{
-    user_id: string
-    email: string
-    password_hash: string
-    role: string
-    active: number
-  }>(
-    'admin_users',
-    '(lower(email) = ? OR lower(username) = ?)',
-    [identifier, identifier]
-  )
+  const database = createSupabaseServiceClient()
+  let { data: adminUser, error: lookupError } = await database.from('admin_users').select(
+    'user_id, email, password_hash, role, active',
+  ).eq('email', identifier).maybeSingle()
+  if (!adminUser && !lookupError) {
+    const lookup = await database.from('admin_users').select(
+      'user_id, email, password_hash, role, active',
+    ).ilike('username', identifier).maybeSingle()
+    adminUser = lookup.data
+    lookupError = lookup.error
+  }
 
-  if (!result.success || !result.data || result.data.length === 0) {
-    recordFailedLogin(identifier, { ip: clientIp, path: '/login' })
+  if (lookupError || !adminUser) {
+    await recordFailedLogin(identifier, { ip: clientIp, path: '/login' })
     await performDummyTimingWork()
     redirect(adminUrl('/login', { error: 'credentials' }))
   }
 
-  const adminUser = result.data[0]
-  const accountLockStatus = isAccountLocked(adminUser.email)
+  const result = adminUser as unknown as {
+    user_id: string
+    email: string
+    password_hash: string
+    role: string
+    active: number | boolean
+  }
+
+  const accountLockStatus = await isAccountLocked(result.email)
   if (accountLockStatus.locked) {
     await performDummyTimingWork()
     redirect(adminUrl('/login', { error: 'locked' }))
   }
 
   // 4. Verify password
-  const passwordMatch = await comparePassword(passwordValue, adminUser.password_hash)
+  const passwordMatch = await comparePassword(passwordValue, result.password_hash)
   if (!passwordMatch) {
-    recordFailedLogin(adminUser.email, { ip: clientIp, path: '/login' })
+    await recordFailedLogin(result.email, { ip: clientIp, path: '/login' })
     await performDummyTimingWork()
     redirect(adminUrl('/login', { error: 'credentials' }))
   }
 
   // 5. Check if user is active
-  if (!adminUser.active) {
-    recordFailedLogin(adminUser.email, { ip: clientIp, path: '/login' })
+  if (result.active !== true && result.active !== 1) {
+    await recordFailedLogin(result.email, { ip: clientIp, path: '/login' })
     await performDummyTimingWork()
     redirect(adminUrl('/login', { error: 'unauthorized' }))
   }
 
   // Password succeeded -> Reset lockout counter
-  recordSuccessfulLogin(adminUser.email, { ip: clientIp, path: '/login' })
+  await recordSuccessfulLogin(result.email, { ip: clientIp, path: '/login' })
 
   // 6. Create admin session
-  await createFullAdminSession(adminUser.user_id, adminUser.email, adminUser.role)
+  await createFullAdminSession(result.user_id, result.email, result.role)
   redirect(adminUrl())
 }
 

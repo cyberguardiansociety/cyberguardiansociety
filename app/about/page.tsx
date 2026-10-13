@@ -9,7 +9,7 @@ import { canonicalMetadata } from '@/lib/seo'
 
 export const metadata: Metadata = {
   title: 'About our cybersecurity community',
-  description: 'Meet Cyber Guardian Society, a volunteer-run community where security practitioners share knowledge, build defensive skills and strengthen collective cyber defense.',
+  description: 'Meet Cyber Guardian Society, an independent student-led community where security practitioners share knowledge, build defensive skills and strengthen collective cyber defense.',
   ...canonicalMetadata('/about'),
 }
 
@@ -39,7 +39,7 @@ export default function AboutPage() {
               image={a.image}
               imageAlt="Cyber Guardian Society members collaborating around a table"
               cards={[
-                { eyebrow: 'Governance', title: 'Volunteer-run', detail: 'No shareholders or sponsors.' },
+                { eyebrow: 'Governance', title: 'Independent student-led', detail: 'No shareholders or sponsors.' },
                 { eyebrow: 'Founded', title: 'Since 2018', detail: 'Built by practising defenders.' },
                 { eyebrow: 'Membership', title: 'Open by design', detail: 'Applications reviewed by peers.' },
               ]}

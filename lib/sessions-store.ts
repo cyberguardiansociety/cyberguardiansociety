@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { revalidatePath } from 'next/cache'
 import { onlineSessions, type OnlineSession } from '@/data/site'
+import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 
 export type StoredSession = {
   id: string
@@ -94,7 +95,9 @@ function safeHref(href: string) {
  * 3. Merge seamlessly so nothing is ever lost
  */
 export async function getAllManagedSessions(supabase?: any): Promise<StoredSession[]> {
-  const localList = readLocalSessions()
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase session store is unavailable.')
+  const localList = hostedDatabase ? [] : readLocalSessions()
   const sessionMap = new Map<string, StoredSession>()
 
   for (const s of localList) {
@@ -103,28 +106,29 @@ export async function getAllManagedSessions(supabase?: any): Promise<StoredSessi
 
   if (supabase) {
     try {
-      // First try fetching base columns from Supabase
       const { data: dbRows, error: dbErr } = await supabase
         .from('online_sessions')
-        .select('id, title, description, starts_at, platform, href, status, is_published, created_at, updated_at')
+        .select('*')
         .order('starts_at', { ascending: false })
 
-      if (!dbErr && Array.isArray(dbRows)) {
+      if (dbErr) throw new Error('Managed sessions could not be loaded from the database.')
+      const { data: speakerRows, error: speakerError } = await supabase
+        .from('cgs_session_speakers')
+        .select('session_id, speaker_id')
+      if (speakerError) throw new Error('Session speakers could not be loaded from the database.')
+      const speakersBySession = new Map<string, string[]>()
+      for (const link of Array.isArray(speakerRows) ? speakerRows : []) {
+        if (typeof link.session_id !== 'string' || typeof link.speaker_id !== 'string') continue
+        const ids = speakersBySession.get(link.session_id) ?? []
+        ids.push(link.speaker_id)
+        speakersBySession.set(link.session_id, ids)
+      }
+      if (Array.isArray(dbRows)) {
         for (const row of dbRows) {
+          const speakerIds = speakersBySession.get(row.id) ?? []
           const existing = sessionMap.get(row.id)
           if (existing) {
-            // Keep rich fields from local store, sync base columns from db
-            sessionMap.set(row.id, {
-              ...existing,
-              title: row.title || existing.title,
-              description: row.description || existing.description,
-              starts_at: row.starts_at || existing.starts_at,
-              platform: row.platform || existing.platform,
-              href: row.href || existing.href,
-              status: row.status || existing.status,
-              is_published: typeof row.is_published === 'boolean' ? row.is_published : existing.is_published,
-              updated_at: row.updated_at || existing.updated_at,
-            })
+            sessionMap.set(row.id, { ...existing, ...row, speakerIds })
           } else {
             // New record found in Supabase
             const slug = (row.title || 'session')
@@ -137,24 +141,24 @@ export async function getAllManagedSessions(supabase?: any): Promise<StoredSessi
               title: row.title || 'Untitled Session',
               slug: slug || `session-${row.id.slice(0, 8)}`,
               description: row.description || '',
-              full_description: null,
+              full_description: row.full_description ?? null,
               starts_at: row.starts_at || new Date().toISOString(),
-              ends_at: new Date(new Date(row.starts_at).getTime() + 3600000).toISOString(),
-              timezone: 'Asia/Karachi',
+              ends_at: row.ends_at ?? new Date(new Date(row.starts_at).getTime() + 3600000).toISOString(),
+              timezone: row.timezone || 'Asia/Karachi',
               platform: row.platform || 'Google Meet',
               href: row.href || '/',
               status: row.status || 'upcoming',
-              management_status: row.status === 'current' ? 'LIVE' : 'UPCOMING',
-              is_active: true,
+              management_status: row.management_status || (row.status === 'current' ? 'LIVE' : 'UPCOMING'),
+              is_active: row.is_active !== false,
               is_published: Boolean(row.is_published),
-              registration_open: true,
-              attendance_open: false,
-              attendance_starts_at: null,
-              attendance_ends_at: null,
-              session_number: null,
-              bootcamp_tag: 'cgs-bootcamp-2026',
-              sheet_connection_id: null,
-              speakerIds: [],
+              registration_open: row.registration_open !== false,
+              attendance_open: Boolean(row.attendance_open),
+              attendance_starts_at: row.attendance_starts_at ?? null,
+              attendance_ends_at: row.attendance_ends_at ?? null,
+              session_number: row.session_number ?? null,
+              bootcamp_tag: row.bootcamp_tag || 'cgs-bootcamp-2026',
+              sheet_connection_id: row.sheet_connection_id ?? null,
+              speakerIds,
               created_at: row.created_at || new Date().toISOString(),
               updated_at: row.updated_at || new Date().toISOString(),
             })
@@ -162,6 +166,7 @@ export async function getAllManagedSessions(supabase?: any): Promise<StoredSessi
         }
       }
     } catch (e) {
+      if (hostedDatabase) throw e
       console.warn('[sessions-store] Failed to fetch remote Supabase sessions:', e)
     }
   }
@@ -171,7 +176,7 @@ export async function getAllManagedSessions(supabase?: any): Promise<StoredSessi
   )
 
   // Cache back to local file
-  writeLocalSessions(merged)
+  if (!hostedDatabase) writeLocalSessions(merged)
   return merged
 }
 
@@ -226,75 +231,19 @@ export async function saveManagedSession(
     updated_at: now,
   }
 
-  // 1. Immediately persist to local storage
-  const localList = readLocalSessions()
-  const existingIdx = localList.findIndex((s) => s.id === id)
-  if (existingIdx >= 0) {
-    localList[existingIdx] = { ...localList[existingIdx], ...record }
-  } else {
-    localList.unshift(record)
-  }
-  writeLocalSessions(localList)
-
-  // 2. Sync to Supabase
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase session store is unavailable.')
   if (supabase) {
-    try {
-      const basePayload = {
-        id: record.id,
-        title: record.title,
-        description: record.description,
-        starts_at: record.starts_at,
-        platform: record.platform,
-        href: record.href,
-        status: record.status,
-        is_published: record.is_published,
-        created_by: userId,
-        updated_at: record.updated_at,
-      }
-
-      // First check if row exists in Supabase
-      const { data: existingRow } = await supabase
-        .from('online_sessions')
-        .select('id')
-        .eq('id', record.id)
-        .maybeSingle()
-
-      if (existingRow) {
-        // Try full update first
-        const { error: fullUpdateErr } = await supabase
-          .from('online_sessions')
-          .update({
-            ...record,
-            speakerIds: undefined,
-          })
-          .eq('id', record.id)
-
-        if (fullUpdateErr) {
-          // Fall back to base columns update
-          await supabase
-            .from('online_sessions')
-            .update(basePayload)
-            .eq('id', record.id)
-        }
-      } else {
-        // Try full insert first
-        const { error: fullInsertErr } = await supabase
-          .from('online_sessions')
-          .insert({
-            ...record,
-            speakerIds: undefined,
-          })
-
-        if (fullInsertErr) {
-          // Fall back to base columns insert
-          await supabase
-            .from('online_sessions')
-            .insert(basePayload)
-        }
-      }
-    } catch (dbErr) {
-      console.warn('[sessions-store] Supabase session sync warning:', dbErr)
-    }
+    const { speakerIds, ...databaseRecord } = record
+    const { error } = await supabase.from('online_sessions').upsert(databaseRecord, { onConflict: 'id' })
+    if (error) throw new Error('Managed session could not be saved to the database.')
+  }
+  if (!hostedDatabase) {
+    const localList = readLocalSessions()
+    const existingIdx = localList.findIndex((s) => s.id === id)
+    if (existingIdx >= 0) localList[existingIdx] = { ...localList[existingIdx], ...record }
+    else localList.unshift(record)
+    writeLocalSessions(localList)
   }
 
   // 3. Revalidate paths
@@ -311,15 +260,14 @@ export async function saveManagedSession(
  * Delete a session across local store and Supabase
  */
 export async function deleteManagedSession(id: string, supabase?: any): Promise<boolean> {
-  const localList = readLocalSessions().filter((s) => s.id !== id)
-  writeLocalSessions(localList)
-
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase session store is unavailable.')
   if (supabase) {
-    try {
-      await supabase.from('online_sessions').delete().eq('id', id)
-    } catch (e) {
-      console.warn('[sessions-store] Supabase delete warning:', e)
-    }
+    const { error } = await supabase.from('online_sessions').delete().eq('id', id)
+    if (error) throw new Error('Managed session could not be deleted from the database.')
+  }
+  if (!hostedDatabase) {
+    writeLocalSessions(readLocalSessions().filter((s) => s.id !== id))
   }
 
   try {

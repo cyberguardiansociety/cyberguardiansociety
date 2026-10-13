@@ -2,6 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import { createHmac, randomUUID } from 'crypto'
 import { SESSION_SECRET } from '@/lib/admin-config'
+import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 /**
  * Local storage layer replacing Supabase Storage.
@@ -81,6 +83,15 @@ export async function uploadPublicContentImage(
     }
 
     const filename = `${randomUUID()}.${extension}`
+    if (isSupabaseRuntimeConfigured()) {
+      const storage = createSupabaseServiceClient().storage!.from('cgs-public-assets')
+      const objectPath = `${kind}/${filename}`
+      const { data, error } = await storage.upload(objectPath, buffer, { contentType: type, upsert: false })
+      if (error || !data) return { ok: false, error: 'The image could not be stored.' }
+      const { data: publicUrl } = storage.getPublicUrl(data.path)
+      return { ok: true, url: publicUrl.publicUrl }
+    }
+
     const dir = path.join(PUBLIC_UPLOADS_DIR, 'content', kind)
     fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path.join(dir, filename), buffer)
@@ -106,10 +117,20 @@ export async function uploadPrivateObject(options: {
     const full = resolvePrivatePath(options.path)
     if (!full) return { ok: false, path: options.path, error: 'Invalid storage path.' }
 
-    fs.mkdirSync(path.dirname(full), { recursive: true })
     const buffer = Buffer.isBuffer(options.body)
       ? options.body
       : Buffer.from(options.body as any)
+    if (isSupabaseRuntimeConfigured()) {
+      const { error } = await createSupabaseServiceClient().storage!.from('admin-private').upload(
+        options.path,
+        buffer,
+        { contentType: options.contentType || 'application/octet-stream', upsert: Boolean(options.upsert) },
+      )
+      if (error) return { ok: false, path: options.path, error: 'The file could not be stored.' }
+      return { ok: true, path: options.path }
+    }
+
+    fs.mkdirSync(path.dirname(full), { recursive: true })
     fs.writeFileSync(full, buffer)
 
     return { ok: true, path: options.path, error: undefined }
@@ -121,6 +142,10 @@ export async function uploadPrivateObject(options: {
 
 export async function readPrivateText(relativePath: string): Promise<string | null> {
   try {
+    if (isSupabaseRuntimeConfigured()) {
+      const body = await readPrivateObject(relativePath)
+      return body ? Buffer.from(body).toString('utf-8') : null
+    }
     const full = resolvePrivatePath(relativePath)
     if (!full || !fs.existsSync(full)) return null
     return fs.readFileSync(full, 'utf-8')
@@ -130,8 +155,26 @@ export async function readPrivateText(relativePath: string): Promise<string | nu
   }
 }
 
+export async function readPrivateObject(relativePath: string): Promise<Uint8Array | null> {
+  try {
+    if (isSupabaseRuntimeConfigured()) {
+      const { data, error } = await createSupabaseServiceClient().storage!.from('admin-private').download(relativePath)
+      return error || !data ? null : new Uint8Array(await data.arrayBuffer())
+    }
+    const full = resolvePrivatePath(relativePath)
+    return full && fs.existsSync(full) ? new Uint8Array(fs.readFileSync(full)) : null
+  } catch (err) {
+    console.error('[storage] Private object read failed:', err)
+    return null
+  }
+}
+
 export async function deletePrivateObject(relativePath: string): Promise<boolean> {
   try {
+    if (isSupabaseRuntimeConfigured()) {
+      const { error } = await createSupabaseServiceClient().storage!.from('admin-private').remove([relativePath])
+      return !error
+    }
     const full = resolvePrivatePath(relativePath)
     if (!full || !fs.existsSync(full)) return true
     fs.unlinkSync(full)
@@ -146,6 +189,14 @@ export async function deletePrivateApplication(directory: string): Promise<boole
   try {
     const safe = sanitizeRelativePath(directory)
     if (!safe || !safe.startsWith('applications/')) return false
+    if (isSupabaseRuntimeConfigured()) {
+      const objects = await listPrivateObjects(safe, 1000)
+      if (!objects) return false
+      if (!objects.length) return true
+      const { error } = await createSupabaseServiceClient().storage!.from('admin-private')
+        .remove(objects.map((object) => `${safe}/${object.name}`))
+      return !error
+    }
     const full = path.resolve(PRIVATE_ROOT, safe)
     if (!full.startsWith(PRIVATE_ROOT + path.sep)) return false
     fs.rmSync(full, { recursive: true, force: true })
@@ -165,6 +216,26 @@ export async function listPrivateObjects(
   try {
     const safe = sanitizeRelativePath(prefix)
     if (!safe) return null
+    if (isSupabaseRuntimeConfigured()) {
+      const storage = createSupabaseServiceClient().storage!.from('admin-private')
+      const result: PrivateObjectEntry[] = []
+      const visit = async (folder: string): Promise<boolean> => {
+        const { data, error } = await storage.list(folder, { limit: Math.max(1, Math.min(limit, 1000)) })
+        if (error || !Array.isArray(data)) return false
+        for (const entry of data as Array<{ id?: string | null; name?: string }>) {
+          if (typeof entry.name !== 'string' || !entry.name || entry.name.includes('/')) continue
+          const objectPath = folder ? `${folder}/${entry.name}` : entry.name
+          if (entry.id === null) {
+            if (!await visit(objectPath)) return false
+          } else {
+            result.push({ id: entry.id ?? null, name: objectPath.slice(safe.length + 1) })
+            if (result.length >= limit) return true
+          }
+        }
+        return true
+      }
+      return await visit(safe) ? result.slice(0, limit) : null
+    }
     const full = path.resolve(PRIVATE_ROOT, safe)
     if (!full.startsWith(PRIVATE_ROOT + path.sep)) return null
     if (!fs.existsSync(full)) return []

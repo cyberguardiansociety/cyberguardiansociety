@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import { revalidatePath } from 'next/cache'
 import type { ManagedContentType, ManagedContentItem } from '@/lib/site-content'
+import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 
 const DATA_DIR = path.join(process.cwd(), 'data')
 const CONTENT_FILE = path.join(DATA_DIR, 'managed-content.json')
@@ -95,7 +96,9 @@ export async function getManagedContentItems(
   onlyPublished = false,
   supabase?: any
 ): Promise<ManagedContentItem[]> {
-  const localList = readLocalContent()
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase content store is unavailable.')
+  const localList = hostedDatabase ? [] : readLocalContent()
   const map = new Map<string, ManagedContentItem>()
 
   for (const item of localList) {
@@ -105,23 +108,17 @@ export async function getManagedContentItems(
   }
 
   if (supabase) {
-    try {
-      let query = supabase
-        .from('cgs_managed_content')
-        .select('*')
-        .eq('content_type', contentType)
+    let query = supabase
+      .from('cgs_managed_content')
+      .select('*')
+      .eq('content_type', contentType)
 
-      if (onlyPublished) {
-        query = query.eq('status', 'published')
-      }
-
-      const { data, error } = await query
-      if (!error && Array.isArray(data)) {
-        for (const row of data) {
-          map.set(row.id, row as ManagedContentItem)
-        }
-      }
-    } catch {}
+    if (onlyPublished) query = query.eq('status', 'published')
+    const { data, error } = await query
+    if (error) throw new Error('Managed content could not be loaded from the database.')
+    if (Array.isArray(data)) {
+      for (const row of data) map.set(row.id, row as ManagedContentItem)
+    }
   }
 
   let results = Array.from(map.values())
@@ -137,6 +134,8 @@ export async function saveManagedContentItem(
   userId: string,
   supabase?: any
 ): Promise<ManagedContentItem> {
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase content store is unavailable.')
   const now = new Date().toISOString()
   const id = itemData.id || crypto.randomUUID()
   const title = itemData.title.trim()
@@ -160,36 +159,21 @@ export async function saveManagedContentItem(
     updated_at: now,
   }
 
-  // 1. Save to local storage
-  const localList = readLocalContent()
-  const existingIdx = localList.findIndex((it) => it.id === id)
-  if (existingIdx >= 0) {
-    localList[existingIdx] = { ...localList[existingIdx], ...record }
-  } else {
-    localList.unshift(record)
-  }
-  writeLocalContent(localList)
-
-  // 2. Sync to Supabase if table exists
+  // Hosted writes are database-first; only standalone local development uses
+  // the JSON fallback store.
   if (supabase) {
-    try {
-      const { data: existingRow } = await supabase
-        .from('cgs_managed_content')
-        .select('id')
-        .eq('id', id)
-        .maybeSingle()
-
-      if (existingRow) {
-        await supabase
-          .from('cgs_managed_content')
-          .update(record)
-          .eq('id', id)
-      } else {
-        await supabase
-          .from('cgs_managed_content')
-          .insert({ ...record, created_by: userId })
-      }
-    } catch {}
+    const { error } = await supabase.from('cgs_managed_content').upsert(
+      { ...record, created_by: userId },
+      { onConflict: 'id' },
+    )
+    if (error) throw new Error('Managed content could not be saved to the database.')
+  }
+  if (!hostedDatabase) {
+    const localList = readLocalContent()
+    const existingIdx = localList.findIndex((it) => it.id === id)
+    if (existingIdx >= 0) localList[existingIdx] = { ...localList[existingIdx], ...record }
+    else localList.unshift(record)
+    writeLocalContent(localList)
   }
 
   // 3. Revalidate paths
@@ -208,7 +192,9 @@ export async function deleteManagedContentItem(
   contentType: ManagedContentType,
   supabase?: any
 ): Promise<boolean> {
-  const originalList = readLocalContent()
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase content store is unavailable.')
+  const originalList = hostedDatabase ? [] : readLocalContent()
   const localList = originalList.filter((it) => !(it.id === id && it.content_type === contentType))
   let databaseDeleted = false
   if (supabase) {
@@ -249,7 +235,9 @@ export async function deleteManagedContentItem(
 
 export async function deleteAllDraftManagedContent(supabase?: any): Promise<number> {
   const contentTypes: ManagedContentType[] = ['announcement', 'product', 'merchandise', 'resource']
-  const originalList = readLocalContent()
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  if (hostedDatabase && !supabase) throw new Error('The Supabase content store is unavailable.')
+  const originalList = hostedDatabase ? [] : readLocalContent()
   const localList = originalList.filter(
     (item) => !(contentTypes.includes(item.content_type) && item.status === 'draft'),
   )

@@ -1,4 +1,5 @@
 import { getDatabase, saveDatabase } from './client'
+import { getSupabaseRuntimeConfig } from '../supabase/config'
 
 /**
  * Canonical SQLite schema for Cyber Guardian Society.
@@ -349,6 +350,9 @@ export function applySchema(db: any): void {
 }
 
 export async function initializeDatabase(): Promise<void> {
+  // Vercel instances are ephemeral. In hosted mode all persistent state must
+  // come from Supabase; never initialize or write a local SQLite copy there.
+  if (getSupabaseRuntimeConfig()) return
   const db = await getDatabase()
   applySchema(db)
   await saveDatabase()

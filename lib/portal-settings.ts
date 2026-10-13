@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
+import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 import {
   DEFAULT_MAINTENANCE_MESSAGE,
   readMaintenanceSnapshot,
@@ -45,13 +46,14 @@ export async function getPortalSettings(): Promise<PortalSettings> {
       parseSetting(stored.get(key), fallback),
     ]),
   ) as PortalSettings
-  const maintenanceSnapshot = readMaintenanceSnapshot()
+  const maintenanceSnapshot = isSupabaseRuntimeConfigured() ? null : readMaintenanceSnapshot()
   if (maintenanceSnapshot) settings.maintenance_mode = maintenanceSnapshot.enabled
   return settings
 }
 
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
-  const snapshot = readMaintenanceSnapshot()
+  const hostedDatabase = isSupabaseRuntimeConfigured()
+  const snapshot = hostedDatabase ? null : readMaintenanceSnapshot()
   if (snapshot) return snapshot
 
   const stored = await getStoredPortalSettings()
@@ -62,7 +64,7 @@ export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
       ? message.trim()
       : DEFAULT_MAINTENANCE_MESSAGE,
   }
-  writeMaintenanceSnapshot(settings)
+  if (!hostedDatabase) writeMaintenanceSnapshot(settings)
   return settings
 }
 
@@ -87,7 +89,7 @@ export async function savePortalSetting(key: PortalSettingKey, value: boolean): 
     { onConflict: 'key' },
   )
   if (error) throw new Error('Portal setting could not be saved.')
-  if (key === 'maintenance_mode') writeMaintenanceSnapshot({ enabled: value })
+  if (key === 'maintenance_mode' && !isSupabaseRuntimeConfigured()) writeMaintenanceSnapshot({ enabled: value })
 }
 
 export async function saveMaintenanceMessage(value: string): Promise<void> {
@@ -111,7 +113,7 @@ export async function saveMaintenanceMessage(value: string): Promise<void> {
     { onConflict: 'key' },
   )
   if (error) throw new Error('Maintenance message could not be saved.')
-  writeMaintenanceSnapshot({ message: value })
+  if (!isSupabaseRuntimeConfigured()) writeMaintenanceSnapshot({ message: value })
 }
 
 export async function resetPortalSettings(): Promise<void> {

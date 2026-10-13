@@ -4,6 +4,8 @@ import ManagedContentCards from '@/components/ManagedContentCards'
 import { readPublicManagedContent } from '@/lib/site-content'
 import { canonicalMetadata } from '@/lib/seo'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Announcements',
   description: 'News and updates from the Cyber Guardian Society community.',

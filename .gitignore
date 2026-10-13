@@ -7,6 +7,7 @@ node_modules/
 .next/
 out/
 next-env.d.ts
+.vercel/
 
 # production
 build/
@@ -62,3 +63,4 @@ yarn-error.log*
 # logs
 logs/
 *.log
+/supabase/.temp/

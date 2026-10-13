@@ -24,6 +24,8 @@ import ManagedContentCards from '@/components/ManagedContentCards'
 import { readPublicManagedContent } from '@/lib/site-content'
 import { canonicalMetadata } from '@/lib/seo'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Cyber Guardian Society merchandise',
   description: 'Browse Cyber Guardian Society community merchandise, including apparel and practical accessories for cybersecurity practitioners.',

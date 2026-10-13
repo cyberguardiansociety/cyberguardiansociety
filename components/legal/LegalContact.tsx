@@ -11,7 +11,7 @@ export default function LegalContact() {
         Questions about this document?
       </h2>
       <p className="mt-2 text-[15px] text-ink-muted">
-        We read every message and reply as quickly as volunteer schedules allow.
+        Our independent student-led team reads every message and replies as soon as we can.
       </p>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <ClayButton href="/contact" variant="secondary">

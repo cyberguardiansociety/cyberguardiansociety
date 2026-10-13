@@ -108,7 +108,7 @@ export async function runDangerZoneAction(formData: FormData) {
       await logAudit({ actor_id: user.id, action: 'reset', entity: 'portal_settings', details: { scope: 'all site settings' } })
       successStatus = 'settings-reset'
     } else if (action === 'clear-lockouts') {
-      const cleared = clearAllAccountLockouts()
+      const cleared = await clearAllAccountLockouts()
       await logAudit({ actor_id: user.id, action: 'clear', entity: 'admin_login_lockouts', details: { records_cleared: cleared } })
       successStatus = 'lockouts-cleared'
     } else {

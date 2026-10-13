@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Join Cyber Guardian Society',
-  description: 'Apply to join the Cyber Guardian Society, a volunteer-run cybersecurity community for practitioners who want to learn, share and strengthen collective defense.',
+  description: 'Apply to join the Cyber Guardian Society, an independent student-led cybersecurity community for practitioners who want to learn, share and strengthen collective defense.',
   ...canonicalMetadata('/join-cgs'),
 }
 

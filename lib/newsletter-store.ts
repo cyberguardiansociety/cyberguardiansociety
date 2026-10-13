@@ -1,5 +1,7 @@
 import fs from 'fs'
 import path from 'path'
+import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 /**
  * Newsletter subscriptions store.
@@ -47,8 +49,14 @@ function writeSubscribers(list: NewsletterSubscriber[]): void {
 }
 
 /** Returns true if the email already exists in the list. */
-export function hasSubscriber(email: string): boolean {
+export async function hasSubscriber(email: string): Promise<boolean> {
   const normalized = email.trim().toLowerCase()
+  if (isSupabaseRuntimeConfigured()) {
+    const { data, error } = await createSupabaseServiceClient().from('newsletter_subscribers')
+      .select('email').eq('email', normalized).maybeSingle()
+    if (error) throw new Error('Newsletter subscriptions could not be checked.')
+    return Boolean(data)
+  }
   return readSubscribers().some((s) => s.email === normalized)
 }
 
@@ -56,8 +64,20 @@ export function hasSubscriber(email: string): boolean {
  * Persists a subscription. Returns the stored record, or null if the email is
  * already subscribed (idempotent — no duplicate rows).
  */
-export function persistSubscription(email: string, source: string): NewsletterSubscriber | null {
+export async function persistSubscription(email: string, source: string): Promise<NewsletterSubscriber | null> {
   const normalized = email.trim().toLowerCase()
+  if (isSupabaseRuntimeConfigured()) {
+    const record = {
+      email: normalized,
+      source: source || 'team-page',
+      subscribed_at: new Date().toISOString(),
+    }
+    const { error } = await createSupabaseServiceClient().from('newsletter_subscribers').insert(record)
+    if (error?.code === '23505') return null
+    if (error) throw new Error('Newsletter subscription could not be saved.')
+    return { email: record.email, source: record.source, subscribedAt: record.subscribed_at }
+  }
+
   const list = readSubscribers()
 
   if (list.some((s) => s.email === normalized)) {

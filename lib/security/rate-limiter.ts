@@ -1,5 +1,7 @@
 import { headers } from 'next/headers'
 import { logSecurityEvent } from '@/lib/security/logger'
+import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 interface RateLimitEntry {
   count: number
@@ -34,14 +36,30 @@ export async function extractClientIp(): Promise<string> {
 /**
  * Checks sliding window rate limit for an IP and action.
  */
-export function checkRateLimit(
+export async function checkRateLimit(
   ip: string,
   keyPrefix = 'admin-login',
   maxAttempts = 5,
   windowMs = 15 * 60 * 1000,
-): { allowed: boolean; remaining: number; retryAfterSeconds: number } {
+): Promise<{ allowed: boolean; remaining: number; retryAfterSeconds: number }> {
   const key = `${keyPrefix}:${ip}`
   const now = Date.now()
+
+  if (isSupabaseRuntimeConfigured()) {
+    const { data, error } = await createSupabaseServiceClient().rpc?.('consume_admin_ip_rate_limit', {
+      p_limit_key: key,
+      p_max_requests: maxAttempts,
+      p_window_seconds: Math.max(1, Math.ceil(windowMs / 1000)),
+    }) ?? { data: null, error: { message: 'Remote login rate limiter is unavailable.', details: '', hint: '', code: 'RPC_UNAVAILABLE' } }
+    if (error || !data || typeof data !== 'object') throw new Error('Administrator rate limit could not be checked.')
+    const result = data as { allowed: boolean; remaining: number; retryAfterSeconds: number }
+    if (!result.allowed) {
+      logSecurityEvent('RATE_LIMIT_EXCEEDED', `Admin rate limit exceeded for IP: ${ip}`, {
+        ip, path: keyPrefix, severity: 'warn', details: { maxAttempts, retryAfterSeconds: result.retryAfterSeconds },
+      })
+    }
+    return result
+  }
 
   let entry = ipBuckets.get(key)
   if (!entry || now > entry.resetAt) {

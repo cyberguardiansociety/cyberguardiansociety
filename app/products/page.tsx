@@ -9,6 +9,8 @@ import ManagedContentCards from '@/components/ManagedContentCards'
 import { readPublicManagedContent } from '@/lib/site-content'
 import { canonicalMetadata } from '@/lib/seo'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Cybersecurity tools and learning resources',
   description: 'Discover security tools, community resources and practical learning paths built around threat intelligence, incident response and defensive security.',

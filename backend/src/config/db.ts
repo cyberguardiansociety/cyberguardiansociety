@@ -1,16 +1,16 @@
-import { createSqliteClient, type SqliteClient } from '../../../lib/db/sqlite-adapter'
+import type { SqliteClient } from '../../../lib/db/sqlite-adapter'
+import { createSupabaseServiceClient } from '../../../lib/supabase/service'
 import { initializeDatabase } from '../../../lib/db'
 import { logger } from '../utils/logger'
 
 let sqliteClient: SqliteClient | null = null
 
 /**
- * Returns the shared SQLite-backed database client for the backend.
- * Replaces the former Supabase service client.
+ * Returns the shared application database client for the backend.
  */
 export function getDbClient(): SqliteClient {
   if (!sqliteClient) {
-    sqliteClient = createSqliteClient()
+    sqliteClient = createSupabaseServiceClient()
   }
   return sqliteClient
 }

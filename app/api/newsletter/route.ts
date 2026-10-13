@@ -79,7 +79,7 @@ export async function POST(request: Request) {
   const { email, source } = parseResult.data
 
   // 5. Idempotency — already subscribed is a success, not an error.
-  if (hasSubscriber(email)) {
+  if (await hasSubscriber(email)) {
     await logPublicFormEvent({
       action: 'newsletter_subscription_success',
       request,
@@ -94,7 +94,16 @@ export async function POST(request: Request) {
   }
 
   // 6. Persist the subscription (real write — no fake success).
-  const record = persistSubscription(email, source)
+  let record
+  try {
+    record = await persistSubscription(email, source)
+  } catch (error) {
+    await logPublicFormEvent({ action: 'newsletter_database_failure', request, email, error })
+    return NextResponse.json(
+      { error: 'Subscription is temporarily unavailable. Please try again soon.', code: 'SERVICE_UNAVAILABLE' },
+      { status: 503 },
+    )
+  }
   if (!record) {
     // Lost a race with a concurrent duplicate — treat as success.
     return NextResponse.json({

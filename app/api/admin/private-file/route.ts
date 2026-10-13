@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
-import fs from 'fs'
 import path from 'path'
 import { SESSION_SECRET } from '@/lib/admin-config'
+import { readPrivateObject } from '@/lib/supabase-storage'
 
 export const runtime = 'nodejs'
 
@@ -49,17 +49,14 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const fullPath = path.resolve(process.cwd(), 'data', 'private', relPath)
-  const privateRoot = path.resolve(process.cwd(), 'data', 'private')
-  if (!fullPath.startsWith(privateRoot + path.sep) || !fs.existsSync(fullPath)) {
-    return new NextResponse('Not found', { status: 404 })
-  }
-
-  const extension = path.extname(fullPath).toLowerCase()
+  const extension = path.extname(relPath).toLowerCase()
   const contentType = CONTENT_TYPES[extension] ?? 'application/octet-stream'
-  const body = fs.readFileSync(fullPath)
+  const body = await readPrivateObject(relPath)
+  if (!body) return new NextResponse('Not found', { status: 404 })
 
-  return new NextResponse(new Uint8Array(body), {
+  const responseBody = new Uint8Array(body.length)
+  responseBody.set(body)
+  return new NextResponse(responseBody.buffer as ArrayBuffer, {
     status: 200,
     headers: {
       'Content-Type': contentType,

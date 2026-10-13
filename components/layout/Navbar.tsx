@@ -20,7 +20,7 @@ const megaMenus = [
         title: 'The society',
         items: [
           { label: 'About CGS', href: '/about', description: 'Meet the people and principles behind CGS.' },
-          { label: 'Our team', href: '/team', description: 'Get to know the volunteers leading the work.' },
+          { label: 'Our team', href: '/team', description: 'Meet the independent student-led team behind the work.' },
           { label: 'Member stories', href: '/testimonials', description: 'Hear from people in the community.' },
           { label: 'Announcements', href: '/announcements', description: 'Read the latest updates from the society.' },
         ],

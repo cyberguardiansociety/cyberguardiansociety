@@ -2,7 +2,6 @@ import 'server-only'
 import { redirect, notFound } from 'next/navigation'
 import { adminUrl } from '@/lib/admin-config'
 import { getVerifiedAdminSession } from '@/lib/security/session'
-import { selectOne } from '@/lib/db'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 export const ADMIN_PERMISSION_KEYS = [
@@ -39,25 +38,21 @@ export async function getAdminContext() {
   }
 
   // Lookup admin user from database
-  const result = await selectOne<{
-    user_id: string
-    role: string
-    permission_keys: string
-    active: number
-  }>(
-    'admin_users',
-    'user_id = ? AND active = 1',
-    [verifiedSession.userId]
-  )
+  const database = createSupabaseServiceClient()
+  const { data: adminRecord, error } = await database.from('admin_users')
+    .select('user_id, role, permission_keys, active')
+    .eq('user_id', verifiedSession.userId)
+    .maybeSingle()
 
-  if (!result.success || !result.data || result.data.length === 0) {
+  if (error || !adminRecord || (adminRecord.active !== true && adminRecord.active !== 1)) {
     return null
   }
 
-  const adminRecord = result.data[0]
   let permissionKeys: string[] = []
   try {
-    const parsed = adminRecord.permission_keys ? JSON.parse(adminRecord.permission_keys) : []
+    const parsed = Array.isArray(adminRecord.permission_keys)
+      ? adminRecord.permission_keys
+      : adminRecord.permission_keys ? JSON.parse(adminRecord.permission_keys) : []
     if (Array.isArray(parsed)) permissionKeys = parsed.filter((key): key is string => typeof key === 'string')
   } catch {
     // A malformed permission list must never lock every administrator out;

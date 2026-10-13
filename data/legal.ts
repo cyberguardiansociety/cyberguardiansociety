@@ -1,7 +1,7 @@
 /**
  * Long-form policy copy for the legal pages. Kept in one place so the wording
  * is easy to review and diff. These documents are drafted for an independent,
- * volunteer-run organisation — have them checked against the laws that apply to
+ * student-led organisation — have them checked against the laws that apply to
  * your registration before publishing.
  */
 
@@ -43,7 +43,7 @@ export const privacyPolicy: LegalDocument = {
       id: 'overview',
       title: 'Overview',
       blocks: [
-        { type: 'p', text: 'Cyber Guardian Society is an independently volunteer-based cybersecurity firm. We collect the minimum amount of personal data needed to run the Society: membership applications, messages you send us, and the records that let us communicate with members and operate community programmes.' },
+        { type: 'p', text: 'Cyber Guardian Society is an independent student-led cybersecurity community. We collect the minimum amount of personal data needed to run the Society: membership applications, messages you send us, and the records that let us communicate with members and operate community programmes.' },
         { type: 'p', text: 'This policy explains what that data is, why we hold it, how long we keep it, and what you can ask us to do with it.' },
       ],
     },
@@ -51,7 +51,7 @@ export const privacyPolicy: LegalDocument = {
       id: 'who-we-are',
       title: 'Who we are',
       blocks: [
-        { type: 'p', text: 'For the purposes of this policy, Cyber Guardian Society ("CGS", "we", "us") is the organisation that operates this website and the volunteer community around it. Questions about this policy can be sent to the address listed on our contact page.' },
+        { type: 'p', text: 'For the purposes of this policy, Cyber Guardian Society ("CGS", "we", "us") is the independent student-led organisation that operates this website and its community. Questions about this policy can be sent to the address listed on our contact page.' },
       ],
     },
     {
@@ -97,9 +97,9 @@ export const privacyPolicy: LegalDocument = {
       id: 'storage',
       title: 'Storage, security and retention',
       blocks: [
-        { type: 'p', text: 'Membership records, including uploaded CVs, are held in access-controlled storage that only authorised Society volunteers can open. Files are never published or made publicly downloadable.' },
+        { type: 'p', text: 'Membership records, including uploaded CVs, are held in access-controlled storage that only authorised members of the independent student-led team can open. Files are never published or made publicly downloadable.' },
         { type: 'p', text: 'We keep application records for up to 24 months after an application is decided, then delete them. Declined applications are deleted after 12 months. Correspondence is retained for as long as needed to resolve the matter and to keep a record of Society decisions.' },
-        { type: 'p', text: 'No system is perfectly secure, but we treat every volunteer account as a security duty and never ask members to share credentials or handle data they are not authorised to handle.' },
+        { type: 'p', text: 'No system is perfectly secure, but we treat every team account as a security responsibility and never ask members to share credentials or handle data they are not authorised to handle.' },
       ],
     },
     {
@@ -159,7 +159,7 @@ export const termsOfService: LegalDocument = {
   updated: UPDATED,
   appliesTo: 'This website and all Society activities',
   summary: [
-    'The Society is volunteer-run. Membership is unpaid and voluntary, and is not employment, a consultancy contract or a guarantee of any service.',
+    'The Society is independent and student-led. Membership is unpaid and voluntary, and is not employment, a consultancy contract or a guarantee of any service.',
     'Only test systems you own or have written permission to test.',
     'If you find a vulnerability in Society infrastructure, report it to us privately and give us reasonable time to fix it before disclosing it.',
   ],
@@ -176,7 +176,7 @@ export const termsOfService: LegalDocument = {
       id: 'about',
       title: 'About the Society',
       blocks: [
-        { type: 'p', text: 'Cyber Guardian Society is an independently volunteer-based cybersecurity firm. It is run by volunteers and is not a commercial vendor. Membership is an unpaid, voluntary commitment to a community of practice, not an employment relationship, a consultancy contract, or a guarantee of any service.' },
+        { type: 'p', text: 'Cyber Guardian Society is an independent student-led cybersecurity community. It is led by students and practitioners and is not a commercial vendor. Membership is an unpaid, voluntary commitment to a community of practice, not an employment relationship, a consultancy contract, or a guarantee of any service.' },
       ],
     },
     {
@@ -254,7 +254,7 @@ export const termsOfService: LegalDocument = {
       id: 'contact',
       title: 'Contact',
       blocks: [
-        { type: 'p', text: 'Questions about these terms can be sent to us through the contact page. We read every message and reply as quickly as volunteer schedules allow.' },
+        { type: 'p', text: 'Questions about these terms can be sent to us through the contact page. Our independent student-led team reads every message and replies as soon as we can.' },
       ],
     },
   ],
@@ -276,7 +276,7 @@ export const codeOfConduct: LegalDocument = {
       id: 'commitment',
       title: 'Our commitment',
       blocks: [
-        { type: 'p', text: 'Cyber Guardian Society exists so defenders can trust each other. That trust depends on every member behaving professionally, respectfully and honestly. We are an independently volunteer-based cybersecurity firm, and volunteers hold themselves to the same standard as anyone else.' },
+        { type: 'p', text: 'Cyber Guardian Society exists so defenders can trust each other. That trust depends on every member behaving professionally, respectfully and honestly. We are an independent student-led cybersecurity community, and every member holds themselves to the same standard as anyone else.' },
         { type: 'p', text: 'This Code applies in every Society space: events, workshops, community channels, project work, and any place where someone represents the Society.' },
       ],
     },

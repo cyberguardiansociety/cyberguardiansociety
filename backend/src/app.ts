@@ -8,6 +8,7 @@ import { errorHandler } from './middlewares/error.middleware'
 import { AppError } from './utils/AppError'
 import { getDbClient } from './config/db'
 import { readMaintenanceSnapshot, writeMaintenanceSnapshot } from '../../lib/maintenance-state'
+import { isSupabaseRuntimeConfigured } from '../../lib/supabase/config'
 
 const app = express()
 
@@ -37,7 +38,8 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   }
 
   try {
-    let maintenance = readMaintenanceSnapshot()
+    const hostedDatabase = isSupabaseRuntimeConfigured()
+    let maintenance = hostedDatabase ? null : readMaintenanceSnapshot()
     if (!maintenance) {
       const { data, error } = await getDbClient()
         .from('cgs_portal_settings')
@@ -56,12 +58,13 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
         if (typeof row.key === 'string') settings.set(row.key, row.value)
       }
       const storedMessage = settings.get('maintenance_message')
-      maintenance = writeMaintenanceSnapshot({
+      const nextMaintenance = {
         enabled: settings.get('maintenance_mode') === 'true',
         message: typeof storedMessage === 'string' && storedMessage.trim()
           ? storedMessage.trim()
           : 'Our website is temporarily unavailable while we complete scheduled maintenance. Please check back soon.',
-      })
+      }
+      maintenance = hostedDatabase ? nextMaintenance : writeMaintenanceSnapshot(nextMaintenance)
     }
 
     if (maintenance.enabled) {
