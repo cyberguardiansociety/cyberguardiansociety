@@ -3,9 +3,10 @@ import { Shield, User, ShieldCheck, ShieldAlert, Crown } from 'lucide-react'
 import { requirePermission } from '@/lib/admin-auth'
 import { adminUrl } from '@/lib/admin-config'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
-import { createDelegatedAdmin, setDelegatedAdminActive } from '@/app/admin/management-actions'
+import { createDelegatedAdmin, setDelegatedAdminActive, deleteDelegatedAdmin } from '@/app/admin/management-actions'
 import AdminPermissionGrid from './AdminPermissionGrid'
 import AdminFormSubmitButton from './AdminFormSubmitButton'
+import AdminDeleteAccountButton from './AdminDeleteAccountButton'
 
 const permissionGroups = [
   { label: 'Sessions and attendees', items: [['sessions', 'Sessions and timing'], ['speakers', 'Speaker profiles'], ['speaker_applications', 'Speaker applications']] },
@@ -112,16 +113,26 @@ export default async function AdminAdministrators() {
                       : 'Full administrator access'}
                 </p>
               </div>
-              {profile.role === 'limited_admin' && profile.user_id !== context.user.id ? (
-                <div className="admin-card-actions">
+              {!profile.is_protected && profile.user_id !== context.user.id ? (
+                <div className="admin-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <form action={setDelegatedAdminActive}>
                     <input type="hidden" name="userId" value={profile.user_id} />
                     <input type="hidden" name="active" value={profile.active ? 'false' : 'true'} />
-                    <button type="submit" className={profile.active ? 'admin-danger-button admin-modern-button-small' : 'admin-secondary-button admin-modern-button-small'}>
+                    <button
+                      type="submit"
+                      className="admin-secondary-button admin-modern-button-small"
+                      title={profile.active ? 'Temporarily disable administrator login' : 'Restore administrator access'}
+                    >
                       {profile.active ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
-                      {profile.active ? 'Disable access' : 'Restore access'}
+                      {profile.active ? 'Disable' : 'Enable'}
                     </button>
                   </form>
+
+                  <AdminDeleteAccountButton
+                    userId={profile.user_id}
+                    adminEmail={emails.get(profile.user_id) ?? 'this administrator'}
+                    action={deleteDelegatedAdmin}
+                  />
                 </div>
               ) : null}
             </article>

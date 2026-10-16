@@ -60,6 +60,8 @@ const operationErrors: Record<string, string> = {
   'admin-exists':      'An administrator with this email address already exists.',
   'admin-create':      'The administrator account could not be created. Please verify details.',
   'admin-save':        'The administrator account could not be updated.',
+  'admin-protected-delete': 'The primary administrator account is protected and cannot be deleted.',
+  'admin-delete-failed': 'Could not delete administrator account. Please try again.',
   'speaker-invalid':   'The speaker application could not be found.',
   'speaker-delete':    'The speaker application could not be deleted.',
 }
@@ -74,6 +76,7 @@ const operationStatuses: Record<string, string> = {
   'payment-updated':    'Payment status updated.',
   'admin-created':      'Limited administrator created.',
   'admin-updated':      'Administrator access updated.',
+  'admin-deleted':      'Administrator account was permanently removed.',
   'speaker-application-deleted': 'Speaker application deleted.',
   'timing-saved':       'Timing and attendance window updated.',
   'session-started':    'Session is live and attendance is open.',
@@ -99,6 +102,7 @@ const operationStatuses: Record<string, string> = {
   'draft-content-deleted': 'Draft content was deleted.',
   'maintenance-message-saved': 'Maintenance notice updated.',
   'audit-logs-cleared': 'All audit logs were deleted.',
+  'traffic-logs-cleared': 'All traffic logs and threat alerts have been cleared.',
 }
 
 type SessionRow = {

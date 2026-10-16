@@ -4,6 +4,7 @@ import { ADMIN_BASE_PATH, ADMIN_IP_ALLOWLIST, SESSION_SECRET } from '@/lib/admin
 import { logSecurityEvent } from '@/lib/security/logger'
 import { getMaintenanceSettings } from '@/lib/portal-settings'
 import { refreshAdminSessionToken } from '@/lib/security/session-token'
+import { recordRealRequest } from '@/lib/security/traffic-recorder'
 
 const DECOY_PATHS = new Set([
   '/admin',
@@ -125,6 +126,15 @@ export async function proxy(request: NextRequest) {
       path: pathname,
       severity: 'warn',
     })
+    recordRealRequest({
+      method: request.method,
+      path: pathname,
+      statusCode: 404,
+      ip: clientIp,
+      userAgent: request.headers.get('user-agent') || 'Unknown',
+      explicitFlag: true,
+      explicitReason: `Honeypot decoy probe intercepted on ${pathname}`,
+    })
 
     // Return a generic 404 response indistinguishable from non-existent routes
     const notFoundUrl = new URL('/_not-found', request.url)
@@ -143,6 +153,15 @@ export async function proxy(request: NextRequest) {
       path: pathname,
       severity: 'warn',
     })
+    recordRealRequest({
+      method: request.method,
+      path: pathname,
+      statusCode: 403,
+      ip: clientIp,
+      userAgent: request.headers.get('user-agent') || 'Unknown',
+      explicitFlag: true,
+      explicitReason: `Admin login alias rejected from non-allowlisted IP: ${clientIp}`,
+    })
     const notFoundUrl = new URL('/_not-found', request.url)
     return NextResponse.rewrite(notFoundUrl, { status: 404 })
   }
@@ -159,6 +178,15 @@ export async function proxy(request: NextRequest) {
         ip: clientIp,
         path: pathname,
         severity: 'warn',
+      })
+      recordRealRequest({
+        method: request.method,
+        path: pathname,
+        statusCode: 403,
+        ip: clientIp,
+        userAgent: request.headers.get('user-agent') || 'Unknown',
+        explicitFlag: true,
+        explicitReason: `Admin access attempt rejected from non-allowlisted IP: ${clientIp}`,
       })
       const notFoundUrl = new URL('/_not-found', request.url)
       return NextResponse.rewrite(notFoundUrl, { status: 404 })
@@ -224,6 +252,17 @@ export async function proxy(request: NextRequest) {
       }
     }
 
+    if (!pathname.startsWith('/api/admin/traffic')) {
+      recordRealRequest({
+        method: request.method,
+        path: pathname,
+        statusCode: 200,
+        ip: clientIp,
+        userAgent: request.headers.get('user-agent') || 'Unknown',
+        searchQuery: request.nextUrl.search,
+      })
+    }
+
     return response
   }
 
@@ -283,6 +322,17 @@ export async function proxy(request: NextRequest) {
     response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private')
     response.headers.set('Pragma', 'no-cache')
     response.headers.set('Expires', '0')
+  }
+
+  if (!pathname.startsWith('/api/admin/traffic')) {
+    recordRealRequest({
+      method: request.method,
+      path: pathname,
+      statusCode: response.status || 200,
+      ip: clientIp,
+      userAgent: request.headers.get('user-agent') || 'Unknown',
+      searchQuery: request.nextUrl.search,
+    })
   }
 
   return response

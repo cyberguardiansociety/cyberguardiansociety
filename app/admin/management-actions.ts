@@ -333,6 +333,48 @@ export async function setDelegatedAdminActive(formData: FormData) {
   finish('administrators', 'admin-updated')
 }
 
+export async function deleteDelegatedAdmin(formData: FormData) {
+  const context = await requirePermission('admins')
+  if (context.admin.role !== 'super_admin') redirect(adminUrl('', { error: 'forbidden' }))
+  const userId = formData.get('userId')
+  if (typeof userId !== 'string' || !uuidPattern.test(userId) || userId === context.user.id) {
+    redirect(adminUrl('', { view: 'administrators', error: 'admin-invalid' }))
+  }
+
+  const service = createSupabaseServiceClient()
+  const { data: target } = await service
+    .from('admin_users')
+    .select('user_id, email, role, is_protected')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (!target || target.is_protected || target.role === 'super_admin') {
+    redirect(adminUrl('', { view: 'administrators', error: 'admin-protected-delete' }))
+  }
+
+  const { error: dbError } = await service.from('admin_users').delete().eq('user_id', userId)
+  if (dbError) {
+    console.error('[deleteDelegatedAdmin] database delete error:', dbError)
+    redirect(adminUrl('', { view: 'administrators', error: 'admin-delete-failed' }))
+  }
+
+  try {
+    await service.auth.admin.deleteUser(userId)
+  } catch (authErr) {
+    console.warn('[deleteDelegatedAdmin] auth delete user warning:', authErr)
+  }
+
+  await service.from('admin_audit_log').insert({
+    actor_id: context.user.id,
+    action: 'delete',
+    entity: 'admin_users',
+    entity_id: userId,
+    details: { email: target.email, role: target.role },
+  })
+
+  finish('administrators', 'admin-deleted')
+}
+
 export async function deleteSpeakerApplication(formData: FormData) {
   const { supabase, user } = await requirePermission('speaker_applications')
   const id = formData.get('id')
