@@ -100,10 +100,19 @@ export async function syncGoogleConnection(
 
     const header = rows[0].map((value) => String(value ?? '').toLowerCase().trim())
     const emailIndex = header.findIndex((value) => /email/i.test(value))
-    const nameIndex = header.findIndex((value) => /full\s*name/i.test(value) || (/name/i.test(value) && !/email/i.test(value)))
+    let nameIndex = header.findIndex((value) => /full\s*name/i.test(value))
+    if (nameIndex < 0) {
+      nameIndex = header.findIndex((value) => /(participant|student|attendee|registrant|your)\s*name/i.test(value))
+    }
+    if (nameIndex < 0) {
+      nameIndex = header.findIndex((value) => /name/i.test(value) && !/email|user|file|sheet|status|type/i.test(value))
+    }
+    const firstNameIndex = header.findIndex((value) => /first\s*name/i.test(value))
+    const lastNameIndex = header.findIndex((value) => /last\s*name|surname/i.test(value))
+
     const phoneIndex = header.findIndex((value) => /(whatsapp|phone|contact|mobile|cell|number)/i.test(value))
-    const organizationIndex = header.findIndex((value) => /(organization|organisation|university|institute|college|company|affiliation)/i.test(value))
-    const locationIndex = header.findIndex((value) => /(city|country|location)/i.test(value))
+    const organizationIndex = header.findIndex((value) => /(organization|organisation|university|institute|college|company|affiliation|school)/i.test(value))
+    const locationIndex = header.findIndex((value) => /(city|country|location|address)/i.test(value))
     const experienceIndex = header.findIndex((value) => /(experience|level|skill|background)/i.test(value))
     if (emailIndex < 0) throw new Error('No email column was found in the sheet header.')
 
@@ -127,9 +136,20 @@ export async function syncGoogleConnection(
         summary.duplicates += 1
         continue
       }
+
+      let parsedName = ''
+      if (nameIndex >= 0) {
+        parsedName = boundedCell(row, nameIndex, 200)
+      }
+      if (!parsedName && firstNameIndex >= 0) {
+        const first = boundedCell(row, firstNameIndex, 100)
+        const last = lastNameIndex >= 0 ? boundedCell(row, lastNameIndex, 100) : ''
+        parsedName = `${first} ${last}`.trim()
+      }
+
       uniqueRows.set(email, {
         email,
-        name: boundedCell(row, nameIndex, 200),
+        name: parsedName,
         whatsapp: boundedCell(row, phoneIndex, 50),
         organization: boundedCell(row, organizationIndex, 200),
         countryCity: boundedCell(row, locationIndex, 100),
@@ -155,11 +175,11 @@ export async function syncGoogleConnection(
       else summary.registrantsCreated += 1
       return {
         email: row.email,
-        name: old?.name || row.name || null,
-        whatsapp: old?.whatsapp || row.whatsapp || null,
-        organization: old?.organization || row.organization || null,
-        country_city: old?.country_city || row.countryCity || null,
-        experience_level: old?.experience_level || row.experienceLevel || null,
+        name: row.name?.trim() || (old?.name as string)?.trim() || null,
+        whatsapp: row.whatsapp?.trim() || (old?.whatsapp as string)?.trim() || null,
+        organization: row.organization?.trim() || (old?.organization as string)?.trim() || null,
+        country_city: row.countryCity?.trim() || (old?.country_city as string)?.trim() || null,
+        experience_level: row.experienceLevel?.trim() || (old?.experience_level as string)?.trim() || null,
         updated_at: new Date().toISOString(),
       }
     })

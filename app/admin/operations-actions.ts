@@ -717,9 +717,14 @@ export async function clearClosedInboxMessages() {
 
 function parseGoogleConnection(formData: FormData) {
   const name = textField(formData, 'name', 160)
-  const spreadsheetId = textField(formData, 'spreadsheetId', 200)
-  const sheetName = textField(formData, 'sheetName', 300)
-  if (!name || !spreadsheetId || !sheetName || !/^[a-zA-Z0-9_-]{10,200}$/.test(spreadsheetId)) return null
+  let spreadsheetId = textField(formData, 'spreadsheetId', 300)
+  const sheetName = textField(formData, 'sheetName', 300) || 'Form Responses 1'
+  if (!name || !spreadsheetId || !sheetName) return null
+  const urlMatch = /\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/.exec(spreadsheetId)
+  if (urlMatch) {
+    spreadsheetId = urlMatch[1]
+  }
+  if (!/^[a-zA-Z0-9_-]{10,200}$/.test(spreadsheetId)) return null
   return { name, spreadsheet_id: spreadsheetId, sheet_name: sheetName }
 }
 
@@ -727,8 +732,14 @@ export async function createGoogleConnection(formData: FormData) {
   const { supabase, user } = await requirePermission('google_sync')
   const connection = parseGoogleConnection(formData)
   if (!connection) fail('google-sync', 'invalid-connection')
+  const sessionId = textField(formData, 'sessionId', 36)
+
   const { data: newConn, error } = await supabase.from('cgs_google_sheet_connections').insert(connection).select('id').maybeSingle()
-  if (error) fail('google-sync', 'connection-save')
+  if (error || !newConn) fail('google-sync', 'connection-save')
+
+  if (sessionId && SESSION_ID_PATTERN.test(sessionId)) {
+    await supabase.from('online_sessions').update({ sheet_connection_id: newConn.id }).eq('id', sessionId)
+  }
 
   try {
     const { logAudit } = await import('@/lib/supabase/audit')
@@ -737,7 +748,7 @@ export async function createGoogleConnection(formData: FormData) {
       action: 'create',
       entity: 'cgs_google_sheet_connections',
       entity_id: newConn?.id,
-      details: { name: connection.name, spreadsheet_id: connection.spreadsheet_id, sheet_name: connection.sheet_name },
+      details: { name: connection.name, spreadsheet_id: connection.spreadsheet_id, sheet_name: connection.sheet_name, session_id: sessionId },
     })
   } catch (auditErr) {
     console.warn('[Audit Log] Failed to log google sync creation:', auditErr)
@@ -751,11 +762,17 @@ export async function updateGoogleConnection(formData: FormData) {
   const id = formData.get('id')
   const connection = parseGoogleConnection(formData)
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id) || !connection) fail('google-sync', 'invalid-connection')
+  const sessionId = textField(formData, 'sessionId', 36)
+
   const { error } = await supabase.from('cgs_google_sheet_connections').update({
     ...connection,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
   if (error) fail('google-sync', 'connection-save')
+
+  if (sessionId && SESSION_ID_PATTERN.test(sessionId)) {
+    await supabase.from('online_sessions').update({ sheet_connection_id: id }).eq('id', sessionId)
+  }
 
   try {
     const { logAudit } = await import('@/lib/supabase/audit')
@@ -824,4 +841,29 @@ export async function syncGoogleConnectionNow(formData: FormData) {
   }
 
   done('google-sync', 'sync-complete')
+}
+
+export async function deleteGoogleConnection(formData: FormData) {
+  const { supabase, user } = await requirePermission('google_sync')
+  const id = formData.get('id')
+  if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id)) fail('google-sync', 'invalid-connection')
+  await supabase.from('cgs_google_sync_runs').delete().eq('connection_id', id)
+  await supabase.from('online_sessions').update({ sheet_connection_id: null }).eq('sheet_connection_id', id)
+  const { error } = await supabase.from('cgs_google_sheet_connections').delete().eq('id', id)
+  if (error) fail('google-sync', 'connection-delete')
+
+  try {
+    const { logAudit } = await import('@/lib/supabase/audit')
+    await logAudit({
+      actor_id: user.id,
+      action: 'delete',
+      entity: 'cgs_google_sheet_connections',
+      entity_id: id,
+      details: { id },
+    })
+  } catch (auditErr) {
+    console.warn('[Audit Log] Failed to log google connection deletion:', auditErr)
+  }
+
+  done('google-sync', 'connection-deleted')
 }

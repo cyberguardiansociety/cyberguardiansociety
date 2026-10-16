@@ -16,6 +16,7 @@ import {
   Mic,
   Package,
   BookOpen,
+  RefreshCw,
   UserCog,
   Users,
   Settings,
@@ -36,6 +37,7 @@ const viewPermission: Record<string, string> = {
   'time-management': 'sessions',
   attendance: 'sessions',
   registrants: 'sessions',
+  'google-sync': 'google_sync',
   administrators: 'admins',
 }
 
@@ -57,6 +59,7 @@ const groups = [
       { id: 'time-management', label: 'Time management', href: '/admin?view=time-management', icon: CalendarClock },
       { id: 'attendance', label: 'Attendance', href: '/admin?view=attendance', icon: ClipboardCheck },
       { id: 'registrants', label: 'Registrants', href: '/admin?view=registrants', icon: Users },
+      { id: 'google-sync', label: 'Google sync', href: '/admin?view=google-sync', icon: RefreshCw },
     ],
   },
   {
@@ -101,7 +104,7 @@ export default function AdminSidebar({
           const visibleItems = group.items.filter(({ id }) => {
             if (id === 'settings') return role === 'super_admin'
             if (id === 'overview' || role === 'admin' || role === 'super_admin') return true
-            if (id === 'sessions') return ['sessions', 'speakers', 'google_sync'].some((key) => permissionKeys.includes(key))
+            if (id === 'sessions' || id === 'google-sync') return ['sessions', 'speakers', 'google_sync'].some((key) => permissionKeys.includes(key))
             return permissionKeys.includes(viewPermission[id] ?? id)
           })
           if (!visibleItems.length) return null

@@ -13,8 +13,8 @@ import AdminAuditLog, { type AuditLogEntry } from '@/components/admin/AdminAudit
 import AdminSettings from '@/components/admin/AdminSettings'
 import { hasAdminPermission, type AdminPermission } from '@/lib/admin-auth'
 
-type SessionOperationsView = 'sessions' | 'time-management' | 'attendance' | 'registrants'
-const sessionViews = new Set<string>(['sessions', 'time-management', 'attendance', 'registrants'])
+type SessionOperationsView = 'sessions' | 'time-management' | 'attendance' | 'registrants' | 'google-sync'
+const sessionViews = new Set<string>(['sessions', 'time-management', 'attendance', 'registrants', 'google-sync'])
 
 const operationErrors: Record<string, string> = {
   invalid:             'Review the submitted values and try again.',
@@ -32,6 +32,7 @@ const operationErrors: Record<string, string> = {
   'already-marked':    'Attendance is already recorded for this registrant.',
   'invalid-connection':'Check the connection name, spreadsheet ID, and sheet/range.',
   'connection-save':   'The Google Sheets connection could not be saved.',
+  'connection-delete': 'The Google Sheets connection could not be deleted.',
   'sync-failed':       'Sync failed. Check service-account access and the Google sync history.',
   'attendance-closed': 'Attendance check-in is currently closed.',
   'inbox-save':        'The inbox status could not be updated.',
@@ -81,6 +82,7 @@ const operationStatuses: Record<string, string> = {
   'speaker-deleted':    'Speaker profile removed.',
   'connection-created': 'Google Sheets connection created.',
   'connection-saved':   'Google Sheets connection saved.',
+  'connection-deleted': 'Google Sheets connection removed.',
   'sync-complete':      'Google Sheets sync completed.',
   'inbox-updated':      'Inbox status updated.',
   'inbox-deleted':      'Inbox message deleted.',
@@ -134,6 +136,10 @@ const views = {
     title: 'Registrants',
     description: 'Search participant records and review session bookings and attendance.',
   },
+  'google-sync': {
+    title: 'Google Sheets sync',
+    description: 'Connect your Google registration form spreadsheet and sync all registered participants.',
+  },
   applications: {
     title: 'Applications',
     description: 'Review membership submissions and manage their status.',
@@ -181,6 +187,7 @@ const viewPermissions: Partial<Record<keyof typeof views, AdminPermission>> = {
   'time-management': 'sessions',
   attendance: 'sessions',
   registrants: 'sessions',
+  'google-sync': 'google_sync',
   applications: 'applications',
   inbox: 'inbox',
   activity: 'audit',

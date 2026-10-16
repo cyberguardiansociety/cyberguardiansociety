@@ -4,13 +4,14 @@ import {
   TimeManagementClient,
   AttendanceManagementClient,
   RegistrantsManagementClient,
+  GoogleSyncManagementClient,
   Alert,
   type PortalSession,
   type AttendanceRow,
   type RegistrantRow,
 } from './AdminSessionOperationsClient'
 
-type View = 'sessions' | 'time-management' | 'attendance' | 'registrants'
+type View = 'sessions' | 'time-management' | 'attendance' | 'registrants' | 'google-sync'
 
 // ─── Server Entry Point ────────────────────────────────────────────────────
 export default async function AdminSessionOperations({
@@ -128,6 +129,38 @@ export default async function AdminSessionOperations({
           attendanceCounts={attendanceCounts}
           q={query}
           error={!!regErr}
+        />
+      </div>
+    )
+  }
+
+  // ── 5. Google Sheets Sync ────────────────────────────────────────────────
+  if (view === 'google-sync') {
+    const { googleSheetsConfigured } = await import('@/lib/google-sheets')
+    const isConfigured = googleSheetsConfigured()
+    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || ''
+
+    const [{ data: connections, error: connErr }, { data: syncRuns }] = await Promise.all([
+      supabase
+        .from('cgs_google_sheet_connections')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('cgs_google_sync_runs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ])
+
+    return (
+      <div className="admin-session-operations-container">
+        <GoogleSyncManagementClient
+          sessions={sessions}
+          connections={(connections ?? []) as any[]}
+          syncRuns={(syncRuns ?? []) as any[]}
+          isConfigured={isConfigured}
+          serviceAccountEmail={serviceAccountEmail}
+          error={!!connErr}
         />
       </div>
     )
