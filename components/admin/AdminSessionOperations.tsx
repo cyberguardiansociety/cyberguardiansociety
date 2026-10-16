@@ -138,7 +138,7 @@ export default async function AdminSessionOperations({
   if (view === 'google-sync') {
     const { googleSheetsConfigured } = await import('@/lib/google-sheets')
     const isConfigured = googleSheetsConfigured()
-    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || ''
+    const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || 'cyberguardiansociety@gen-lang-client-0696792386.iam.gserviceaccount.com'
 
     const [{ data: connections, error: connErr }, { data: syncRuns }] = await Promise.all([
       supabase

@@ -3,6 +3,7 @@ import { AlertTriangle, BookOpen, ClipboardList, LockKeyhole, Settings2, ShieldC
 import { getMaintenanceSettings, getPortalSettings, type PortalSettings } from '@/lib/portal-settings'
 import { changePortalSetting, saveMaintenanceMessage } from '@/app/admin/settings-actions'
 import TypedDangerAction from '@/components/admin/TypedDangerAction'
+import TrafficMonitor from '@/components/admin/TrafficMonitor'
 
 const tabs = [
   { id: 'general', label: 'General', icon: Settings2 },
@@ -87,8 +88,8 @@ export default async function AdminSettings({
             <h2>Site operations</h2>
             <p>Control the public portal and the site-wide attendance check-in gate.</p>
           </div>
-          <SettingSwitch title="Public portal" description="Allow the site’s portal and attendance features to operate." settingKey="portal_open" enabled={settings.portal_open} />
-          <SettingSwitch title="Attendance check-in" description="Allow check-ins when the selected session’s attendance window is open." settingKey="attendance_open" enabled={settings.attendance_open} />
+          <SettingSwitch title="Public portal" description="Allow the site's portal and attendance features to operate." settingKey="portal_open" enabled={settings.portal_open} />
+          <SettingSwitch title="Attendance check-in" description="Allow check-ins when the selected session's attendance window is open." settingKey="attendance_open" enabled={settings.attendance_open} />
         </div>
       ) : null}
 
@@ -141,13 +142,18 @@ export default async function AdminSettings({
         <div className="settings-panel">
           <div className="settings-panel__heading">
             <h2>Security management</h2>
-            <p>Manage administrator access and review recorded changes from the dedicated sections.</p>
+            <p>Manage administrator access, review recorded changes, and monitor platform traffic for threats.</p>
           </div>
           <div className="settings-link-grid">
             <Link href="?view=administrators" className="settings-link-card"><LockKeyhole size={18} /><span><strong>Administrator access</strong><small>Manage limited administrator accounts and permissions.</small></span></Link>
             <Link href="?view=activity" className="settings-link-card"><BookOpen size={18} /><span><strong>Audit log</strong><small>Review changes made in the administration panel.</small></span></Link>
           </div>
           <p className="admin-form-note">The protected Master administrator account cannot be edited or deleted from the administrator manager.</p>
+
+          {/* Traffic Monitoring & Attack Identifier */}
+          <div style={{ marginTop: '24px' }}>
+            <TrafficMonitor />
+          </div>
         </div>
       ) : null}
 

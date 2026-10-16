@@ -5,10 +5,11 @@ import { adminUrl } from '@/lib/admin-config'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
 import { createDelegatedAdmin, setDelegatedAdminActive } from '@/app/admin/management-actions'
 import AdminPermissionGrid from './AdminPermissionGrid'
+import AdminFormSubmitButton from './AdminFormSubmitButton'
 
 const permissionGroups = [
   { label: 'Sessions and attendees', items: [['sessions', 'Sessions and timing'], ['speakers', 'Speaker profiles'], ['speaker_applications', 'Speaker applications']] },
-  { label: 'Public submissions', items: [['applications', 'Membership applications'], ['inbox', 'Contact inbox']] },
+  { label: 'Public submissions', items: [['applications', 'CGS Team applications'], ['inbox', 'Contact inbox']] },
   { label: 'Website content', items: [['content_announcement', 'Announcements'], ['content_product', 'Products'], ['content_resource', 'Free resources']] },
   { label: 'Operations', items: [['audit', 'Audit log'], ['google_sync', 'Google Sheets sync']] },
 ] as const
@@ -61,10 +62,13 @@ export default async function AdminAdministrators() {
           {/* Smooth animated Cyber Permission Checkbox Grid */}
           <AdminPermissionGrid groups={permissionGroups} />
 
-          <button type="submit" className="admin-primary-button admin-modern-button" style={{ marginTop: '16px' }}>
-            <Shield size={16} />
+          <AdminFormSubmitButton
+            pendingLabel="Provisioning administrator…"
+            icon={<Shield size={16} />}
+            style={{ marginTop: '16px' }}
+          >
             Create admin account
-          </button>
+          </AdminFormSubmitButton>
         </form>
       </section>
 

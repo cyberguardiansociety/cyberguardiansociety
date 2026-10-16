@@ -388,8 +388,8 @@ export default async function AdminApplications({
           <User size={20} />
         </div>
         <div>
-          <p className="admin-kicker">Membership review & candidates</p>
-          <h2>Application queue <span className="admin-count-badge">{filteredApplications.length}</span></h2>
+          <p className="admin-kicker">CGS Team membership & candidate review</p>
+          <h2>CGS Team Applications <span className="admin-count-badge">{filteredApplications.length}</span></h2>
         </div>
         <span className="admin-private-note"><ShieldCheck size={14} /> Private records</span>
       </div>

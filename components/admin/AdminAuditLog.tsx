@@ -282,22 +282,35 @@ export default function AdminAuditLog({ initialEntries, currentAdminEmail, canCl
               <p>This permanently removes all recorded platform activity. This action cannot be undone.</p>
             </div>
             <label htmlFor="audit-delete-confirmation-input">
-              Type <code>DELETE ALL AUDIT LOGS</code> to confirm
-              <input
-                id="audit-delete-confirmation-input"
-                name="confirmation"
-                value={deleteConfirmation}
-                onChange={(event) => setDeleteConfirmation(event.target.value)}
-                autoComplete="off"
-                required
-                spellCheck={false}
-                aria-invalid={deleteConfirmation.length > 0 && deleteConfirmation !== 'DELETE ALL AUDIT LOGS'}
-              />
+              <span>Type <code>DELETE ALL AUDIT LOGS</code> to confirm:</span>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
+                <input
+                  id="audit-delete-confirmation-input"
+                  name="confirmation"
+                  value={deleteConfirmation}
+                  onChange={(event) => setDeleteConfirmation(event.target.value)}
+                  placeholder="DELETE ALL AUDIT LOGS"
+                  autoComplete="off"
+                  required
+                  spellCheck={false}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirmation('DELETE ALL AUDIT LOGS')}
+                  className="admin-secondary-button"
+                  style={{ fontSize: '11px', padding: '6px 10px', whiteSpace: 'nowrap' }}
+                  title="Auto-fill confirmation text"
+                >
+                  Quick Fill
+                </button>
+              </div>
             </label>
             <button
               className="admin-danger-button"
               type="submit"
-              disabled={deleteConfirmation !== 'DELETE ALL AUDIT LOGS'}
+              disabled={deleteConfirmation.trim().toUpperCase() !== 'DELETE ALL AUDIT LOGS'}
+              style={{ marginTop: '8px' }}
             >
               <Trash2 size={13} /> Permanently delete logs
             </button>

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Container from '@/components/ui/Container'
-import ManagedContentCards from '@/components/ManagedContentCards'
+import AnnouncementRows from '@/components/AnnouncementRows'
 import { readPublicManagedContent } from '@/lib/site-content'
 import { canonicalMetadata } from '@/lib/seo'
 
@@ -24,7 +24,7 @@ export default async function AnnouncementsPage() {
           <p>Updates, opportunities, and news from the CGS community.</p>
         </header>
         {announcements.length ? (
-          <ManagedContentCards items={announcements} />
+          <AnnouncementRows items={announcements} />
         ) : (
           <p className="announcement-empty">There are no announcements right now. Check back for community updates.</p>
         )}
@@ -32,3 +32,4 @@ export default async function AnnouncementsPage() {
     </main>
   )
 }
+

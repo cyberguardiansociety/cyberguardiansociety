@@ -47,7 +47,7 @@ const groups = [
     items: [
       { id: 'overview',             label: 'Overview',             href: '?view=overview',            icon: LayoutDashboard },
       { id: 'inbox',                label: 'Inbox',                href: '?view=inbox',               icon: Mail },
-      { id: 'applications',         label: 'Applications',         href: '?view=applications',        icon: ClipboardList },
+      { id: 'applications',         label: 'CGS Team Applications', href: '?view=applications',        icon: ClipboardList },
       { id: 'speaker-applications', label: 'Speaker applications', href: '?view=speaker-applications', icon: Mic },
       { id: 'activity',             label: 'Audit log',            href: '?view=activity',            icon: Activity },
     ],

@@ -115,6 +115,16 @@ class SupabaseRestQueryBuilder {
     return this
   }
 
+  not(column: string, operator: string, value: unknown): this {
+    if (operator === 'is' && value === null) {
+      this.filters.push({ column, value: 'not.is.null' })
+      return this
+    }
+    const normalized = value === null ? 'null' : String(value)
+    this.filters.push({ column, value: `not.${operator}.${normalized}` })
+    return this
+  }
+
   in(column: string, values: unknown[]): this {
     const items = values.filter((value) => value !== undefined && value !== null)
     this.filters.push({

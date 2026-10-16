@@ -54,7 +54,11 @@ const operationErrors: Record<string, string> = {
   'payment-invalid':   'Check the payment entry and try again.',
   'payment-save':      'The payment entry could not be saved.',
   'admin-invalid':     'Check the administrator details and permissions.',
-  'admin-create':      'The administrator account could not be created.',
+  'admin-invalid-email': 'Please enter a valid administrator email address.',
+  'admin-weak-password': 'Administrator password must be at least 12 characters.',
+  'admin-no-permissions': 'Please select at least one permission for this administrator.',
+  'admin-exists':      'An administrator with this email address already exists.',
+  'admin-create':      'The administrator account could not be created. Please verify details.',
   'admin-save':        'The administrator account could not be updated.',
   'speaker-invalid':   'The speaker application could not be found.',
   'speaker-delete':    'The speaker application could not be deleted.',
@@ -141,8 +145,8 @@ const views = {
     description: 'Connect your Google registration form spreadsheet and sync all registered participants.',
   },
   applications: {
-    title: 'Applications',
-    description: 'Review membership submissions and manage their status.',
+    title: 'CGS Team Applications',
+    description: 'Review CGS team membership submissions and candidate applications.',
   },
   inbox: {
     title: 'Inbox',
@@ -460,7 +464,7 @@ export default async function AdminPage({
           <AdminAuditLog
             initialEntries={activity}
             currentAdminEmail={user.email ?? undefined}
-            canClearAuditLogs={admin.role === 'super_admin'}
+            canClearAuditLogs={admin.role === 'super_admin' || hasAdminPermission(admin, 'audit')}
           />
         ) : null}
 

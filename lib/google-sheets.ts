@@ -5,12 +5,15 @@ import type { createSupabaseServerClient } from '@/lib/supabase/server'
 
 export type PortalSupabaseClient = Awaited<ReturnType<typeof createSupabaseServerClient>>
 
+const DEFAULT_SERVICE_ACCOUNT_EMAIL = 'cyberguardiansociety@gen-lang-client-0696792386.iam.gserviceaccount.com'
+
 export function googleSheetsConfigured() {
-  return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY)
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
+  return Boolean(email && process.env.GOOGLE_PRIVATE_KEY)
 }
 
 function createGoogleAuth() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n')
   if (!email || !privateKey) return null
   return new google.auth.JWT({

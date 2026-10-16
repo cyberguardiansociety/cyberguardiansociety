@@ -260,12 +260,20 @@ export async function createDelegatedAdmin(formData: FormData) {
   const email = text(formData, 'email', 254)?.toLowerCase() || ''
   const passwordValue = formData.get('password')
   const permissions = formData.getAll('permission').filter((value): value is string => typeof value === 'string' && permissionKeys.includes(value as (typeof permissionKeys)[number]) && value !== 'admins')
-  if (
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    typeof passwordValue !== 'string' || passwordValue.length < 12 || passwordValue.length > 128 ||
-    !/[a-z]/.test(passwordValue) || !/[A-Z]/.test(passwordValue) || !/[0-9]/.test(passwordValue) ||
-    !permissions.length
-  ) redirect(adminUrl('', { view: 'administrators', error: 'admin-invalid' }))
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    redirect(adminUrl('', { view: 'administrators', error: 'admin-invalid-email' }))
+  }
+  if (typeof passwordValue !== 'string' || passwordValue.length < 12 || passwordValue.length > 128) {
+    redirect(adminUrl('', { view: 'administrators', error: 'admin-weak-password' }))
+  }
+  if (!permissions.length) {
+    redirect(adminUrl('', { view: 'administrators', error: 'admin-no-permissions' }))
+  }
+
+  // Ensure 'audit' and 'activity' aliases are both saved so all views resolve cleanly
+  const normalizedPermissions = permissions.includes('audit') && !permissions.includes('activity')
+    ? [...permissions, 'activity']
+    : permissions
 
   const service = createSupabaseServiceClient()
   const { data: created, error: authError } = await service.auth.admin.createUser({
@@ -273,7 +281,11 @@ export async function createDelegatedAdmin(formData: FormData) {
     password: passwordValue,
     email_confirm: true,
   })
-  if (authError || !created.user) redirect(adminUrl('', { view: 'administrators', error: 'admin-create' }))
+  if (authError || !created.user) {
+    console.error('[createDelegatedAdmin] createUser error:', authError)
+    const errCode = authError?.message?.toLowerCase().includes('already') ? 'admin-exists' : 'admin-create'
+    redirect(adminUrl('', { view: 'administrators', error: errCode }))
+  }
   const passwordHash = await hashPassword(passwordValue)
   const { error: profileError } = await service.from('admin_users').insert({
     user_id: created.user.id,
@@ -281,9 +293,10 @@ export async function createDelegatedAdmin(formData: FormData) {
     password_hash: passwordHash,
     role: 'limited_admin',
     active: true,
-    permission_keys: [...new Set(permissions)],
+    permission_keys: [...new Set(normalizedPermissions)],
   })
   if (profileError) {
+    console.error('[createDelegatedAdmin] profileError:', profileError)
     await service.auth.admin.deleteUser(created.user.id)
     redirect(adminUrl('', { view: 'administrators', error: 'admin-create' }))
   }

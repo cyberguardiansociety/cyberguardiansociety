@@ -1822,7 +1822,7 @@ export function GoogleSyncManagementClient({
               </div>
               <div className="gsync-setup-email-row">
                 <code className="gsync-setup-email-value">
-                  {serviceAccountEmail || 'cgs-service-account@cyberguardian.iam.gserviceaccount.com'}
+                  {serviceAccountEmail || 'cyberguardiansociety@gen-lang-client-0696792386.iam.gserviceaccount.com'}
                 </code>
                 <button
                   type="button"
