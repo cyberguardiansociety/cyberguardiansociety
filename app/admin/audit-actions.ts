@@ -24,7 +24,7 @@ export async function clearAllAuditLogs(formData: FormData) {
   }
 
   try {
-    const { error } = await supabase.from('admin_audit_log').delete()
+    const { error } = await supabase.from('admin_audit_log').delete().not('id', 'is', null)
     if (error) returnToActivity({ error: 'audit-delete' })
   } catch {
     returnToActivity({ error: 'audit-delete' })

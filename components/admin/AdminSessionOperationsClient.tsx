@@ -875,7 +875,17 @@ export function TimeManagementClient({
                           key={`${selectedSession.id}-attmode`}
                           name="attendanceMode"
                           label="Attendance Verification Window Mode"
-                          defaultValue={selectedSession.attendance_open ? (selectedSession.attendance_starts_at ? 'custom' : 'open') : 'closed'}
+                          defaultValue={
+                            !selectedSession.attendance_open
+                              ? 'closed'
+                              : (selectedSession.attendance_starts_at && selectedSession.attendance_ends_at &&
+                                 selectedSession.attendance_starts_at === selectedSession.starts_at &&
+                                 selectedSession.attendance_ends_at === selectedSession.ends_at)
+                              ? 'session'
+                              : selectedSession.attendance_starts_at
+                              ? 'custom'
+                              : 'open'
+                          }
                           options={[
                             { value: 'session', label: 'Match Exact Session Time' },
                             { value: 'custom', label: 'Custom Date / Time Window' },
@@ -1060,6 +1070,23 @@ export function TimeManagementClient({
                               <option value="COMPLETED">Completed</option>
                               <option value="CANCELLED">Cancelled</option>
                               <option value="ARCHIVED">Archived</option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="cms-form-row">
+                        <div className="cms-form-group">
+                          <label className="cms-form-label">
+                            <span>Attendance Status</span>
+                            <select
+                              name="attendanceMode"
+                              defaultValue={session.attendance_open ? 'open' : 'closed'}
+                              className="cms-form-input"
+                            >
+                              <option value="open">Attendance Open</option>
+                              <option value="closed">Attendance Closed</option>
+                              <option value="session">Match Exact Session Time</option>
                             </select>
                           </label>
                         </div>

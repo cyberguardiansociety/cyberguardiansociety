@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   Activity,
@@ -43,35 +43,35 @@ const groups = [
   {
     label: 'Workspace',
     items: [
-      { id: 'overview',      label: 'Overview',      href: '?',                         icon: LayoutDashboard },
-      { id: 'inbox',         label: 'Inbox',         href: '?view=inbox',               icon: Mail },
-      { id: 'applications',  label: 'Applications',  href: '?view=applications',        icon: ClipboardList },
-      { id: 'speaker-applications', label: 'Speaker applications', href: '?view=speaker-applications', icon: Mic },
-      { id: 'activity',      label: 'Audit log',     href: '?view=activity',            icon: Activity },
+      { id: 'overview',      label: 'Overview',      href: '/admin',                         icon: LayoutDashboard },
+      { id: 'inbox',         label: 'Inbox',         href: '/admin?view=inbox',               icon: Mail },
+      { id: 'applications',  label: 'Applications',  href: '/admin?view=applications',        icon: ClipboardList },
+      { id: 'speaker-applications', label: 'Speaker applications', href: '/admin?view=speaker-applications', icon: Mic },
+      { id: 'activity',      label: 'Audit log',     href: '/admin?view=activity',            icon: Activity },
     ],
   },
   {
     label: 'Sessions & Operations',
     items: [
-      { id: 'sessions', label: 'Online sessions', href: '?view=sessions', icon: CalendarDays },
-      { id: 'time-management', label: 'Time management', href: '?view=time-management', icon: CalendarClock },
-      { id: 'attendance', label: 'Attendance', href: '?view=attendance', icon: ClipboardCheck },
-      { id: 'registrants', label: 'Registrants', href: '?view=registrants', icon: Users },
+      { id: 'sessions', label: 'Online sessions', href: '/admin?view=sessions', icon: CalendarDays },
+      { id: 'time-management', label: 'Time management', href: '/admin?view=time-management', icon: CalendarClock },
+      { id: 'attendance', label: 'Attendance', href: '/admin?view=attendance', icon: ClipboardCheck },
+      { id: 'registrants', label: 'Registrants', href: '/admin?view=registrants', icon: Users },
     ],
   },
   {
     label: 'Content',
     items: [
-      { id: 'announcements', label: 'Announcements', href: '?view=announcements', icon: Megaphone },
-      { id: 'products', label: 'Products', href: '?view=products', icon: Package },
-      { id: 'resources', label: 'Free resources', href: '?view=resources', icon: BookOpen },
+      { id: 'announcements', label: 'Announcements', href: '/admin?view=announcements', icon: Megaphone },
+      { id: 'products', label: 'Products', href: '/admin?view=products', icon: Package },
+      { id: 'resources', label: 'Free resources', href: '/admin?view=resources', icon: BookOpen },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { id: 'administrators', label: 'Administrators', href: '?view=administrators', icon: UserCog },
-      { id: 'settings', label: 'Settings management', href: '?view=settings', icon: Settings },
+      { id: 'administrators', label: 'Administrators', href: '/admin?view=administrators', icon: UserCog },
+      { id: 'settings', label: 'Settings management', href: '/admin?view=settings', icon: Settings },
     ],
   },
 ] as const
@@ -88,6 +88,11 @@ export default function AdminSidebar({
   permissionKeys: string[]
 }) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [pendingView, setPendingView] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPendingView(null)
+  }, [activeView])
 
   function navigation(onNavigate?: () => void, showLabels = false) {
     return (
@@ -104,17 +109,21 @@ export default function AdminSidebar({
             <div className="admin-nav__group" key={group.label}>
               {showLabels && <p className="admin-nav__label">{group.label}</p>}
               {visibleItems.map(({ id, label, href, icon: Icon }) => {
-                const isActive = activeView === id
+                const isSelected = (pendingView ?? activeView) === id
                 return (
                   <Link
                     key={id}
                     href={href}
                     prefetch={true}
-                    onClick={onNavigate}
-                    aria-current={isActive ? 'page' : undefined}
+                    scroll={false}
+                    onClick={() => {
+                      setPendingView(id)
+                      onNavigate?.()
+                    }}
+                    aria-current={isSelected ? 'page' : undefined}
                     title={label}
                     className="admin-nav__link"
-                    data-active={isActive}
+                    data-active={isSelected}
                   >
                     <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
                     {showLabels && <span className="admin-nav__link-text">{label}</span>}

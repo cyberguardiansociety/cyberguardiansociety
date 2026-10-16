@@ -11,7 +11,7 @@ type SubmissionResult = {
   certificateId?: string
 }
 
-export default function AttendanceCheckinForm() {
+export default function AttendanceCheckinForm({ sessionId }: { sessionId?: string }) {
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<SubmissionResult | null>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -25,6 +25,7 @@ export default function AttendanceCheckinForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: formData.get('email'),
+          sessionId: formData.get('sessionId') || sessionId || undefined,
         }),
       })
       const payload = await response.json() as SubmissionResult
@@ -39,6 +40,7 @@ export default function AttendanceCheckinForm() {
 
   return (
     <form ref={formRef} action={submit} className="attendance-checkin-form">
+      {sessionId ? <input type="hidden" name="sessionId" value={sessionId} /> : null}
       <label className="attendance-checkin-label">
         <span>Email address</span>
         <input autoComplete="email" name="email" type="email" required maxLength={254} placeholder="you@example.com" />

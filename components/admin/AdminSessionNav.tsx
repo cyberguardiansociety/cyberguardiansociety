@@ -23,7 +23,9 @@ export default function AdminSessionNav({ activeView, role, permissionKeys }: { 
       {visibleSections.map(({ id, label, icon: Icon }) => (
         <Link
           key={id}
-          href={`?view=${id}`}
+          href={`/admin?view=${id}`}
+          prefetch={true}
+          scroll={false}
           aria-current={activeView === id ? 'page' : undefined}
           data-active={activeView === id}
           className="admin-ops-nav__link"

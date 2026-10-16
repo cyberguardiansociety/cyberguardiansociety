@@ -71,7 +71,7 @@ export default async function AttendancePage() {
                 <h2 id="checkin-panel-heading">Confirm your attendance</h2>
               </div>
             </div>
-            <AttendanceCheckinForm />
+            <AttendanceCheckinForm sessionId={session?.id} />
             <p className="attendance-portal-privacy"><Check size={14} /> Only registered participants can check in. Your email is used to find your session registration.</p>
           </section>
         </div>

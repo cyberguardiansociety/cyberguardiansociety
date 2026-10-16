@@ -62,6 +62,7 @@ const operationErrors: Record<string, string> = {
 const operationStatuses: Record<string, string> = {
   'session-created':    'Session created.',
   'session-saved':      'Session updated.',
+  'session-deleted':    'Session deleted.',
   'content-saved':      'Content saved.',
   'content-deleted':    'Content deleted.',
   'payment-created':    'Payment ledger entry recorded.',
@@ -290,19 +291,36 @@ export default async function AdminPage({
   )
   const activeView = deniedView ? 'overview' : requestedKey ?? 'overview'
 
-  const { data: sessionsData, error: sessionsError } = await supabase
-    .from('online_sessions')
-    .select('id, title, description, starts_at, platform, href, status, is_published')
-    .order('starts_at', { ascending: true })
+  let sessions: SessionRow[] = []
+  let sessionsError: any = null
+  let activity: AuditLogEntry[] = []
+  let totalActivityCount = 0
 
-  const { data: activityData } = await supabase
-    .from('admin_audit_log')
-    .select('id, actor_id, action, entity, entity_id, details, created_at')
-    .order('created_at', { ascending: false })
-    .limit(300)
+  if (activeView === 'overview') {
+    const [{ data: sessionsData, error: sErr }, { data: activityData, count: aCount }] = await Promise.all([
+      supabase
+        .from('online_sessions')
+        .select('id, title, description, starts_at, platform, href, status, is_published')
+        .order('starts_at', { ascending: true }),
+      supabase
+        .from('admin_audit_log')
+        .select('id, actor_id, action, entity, entity_id, details, created_at', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .limit(6),
+    ])
+    sessions = (sessionsData ?? []) as SessionRow[]
+    sessionsError = sErr
+    activity = (activityData ?? []) as AuditLogEntry[]
+    totalActivityCount = aCount ?? activity.length
+  } else if (activeView === 'activity') {
+    const { data: activityData } = await supabase
+      .from('admin_audit_log')
+      .select('id, actor_id, action, entity, entity_id, details, created_at')
+      .order('created_at', { ascending: false })
+      .limit(300)
+    activity = (activityData ?? []) as AuditLogEntry[]
+  }
 
-  const sessions      = (sessionsData ?? []) as SessionRow[]
-  const activity      = (activityData ?? []) as AuditLogEntry[]
   const upcomingCount = sessions.filter((s) => s.status === 'upcoming').length
   const publishedCount = sessions.filter((s) => s.is_published).length
   const page          = views[activeView]
@@ -375,7 +393,7 @@ export default async function AdminPage({
               <div className="admin-metric">
                 <span className="admin-metric__icon"><ShieldCheck size={15} /></span>
                 <p className="admin-metric__label">Recent actions</p>
-                <p className="admin-metric__value">{activity.length}</p>
+                <p className="admin-metric__value">{totalActivityCount || activity.length}</p>
               </div>
             </section>
 

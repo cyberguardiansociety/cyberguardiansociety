@@ -328,6 +328,25 @@ class QueryBuilder {
     return this
   }
 
+  not(column: string, operator: string, value: any): this {
+    if (operator === 'is' && value === null) {
+      this.filters.push({ sql: `${column} IS NOT NULL`, params: [] })
+    } else if (operator === 'in') {
+      const list = Array.isArray(value) ? value.filter((v) => v !== undefined && v !== null) : []
+      if (list.length === 0) {
+        this.filters.push({ sql: '1 = 1', params: [] })
+      } else {
+        const placeholders = list.map(() => '?').join(', ')
+        this.filters.push({ sql: `${column} NOT IN (${placeholders})`, params: list.map((v) => toDbValue(this.table, column, v)) })
+      }
+    } else if (operator === 'eq') {
+      this.filters.push(this.comparison(column, value, '<>'))
+    } else {
+      this.filters.push(this.comparison(column, value, '<>'))
+    }
+    return this
+  }
+
   in(column: string, values: any[]): this {
     const list = values.filter((value) => value !== undefined && value !== null)
     if (list.length === 0) {

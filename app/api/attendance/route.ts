@@ -47,6 +47,8 @@ export async function POST(request: Request) {
   if (portalSetting?.value === 'false') return fail('The attendance portal is currently offline.', 503, 'PORTAL_OFFLINE')
   if (attendanceSetting?.value === 'false') return fail('Attendance check-in is currently closed.', 403, 'ATTENDANCE_CLOSED')
 
+  const requestedSessionId = typeof body.sessionId === 'string' && body.sessionId.length <= 36 ? body.sessionId.trim() : null
+
   const now = Date.now()
   const { data: sessions, error: sessionError } = await supabase.from('online_sessions')
     .select('id, title, starts_at, ends_at, attendance_starts_at, attendance_ends_at')
@@ -57,12 +59,26 @@ export async function POST(request: Request) {
   if (sessionError) return fail('Attendance is temporarily unavailable.', 503, 'PORTAL_OFFLINE')
 
   const session = (sessions ?? []).find((candidate) => {
+    if (requestedSessionId && candidate.id !== requestedSessionId) return false
     const attendanceStart = candidate.attendance_starts_at ? new Date(candidate.attendance_starts_at).getTime() : null
     const attendanceEnd = candidate.attendance_ends_at ? new Date(candidate.attendance_ends_at).getTime() : null
-    if (attendanceStart !== null && attendanceEnd !== null) return now >= attendanceStart && now <= attendanceEnd
-    const start = new Date(candidate.starts_at).getTime() - TWO_HOURS
-    const end = new Date(candidate.ends_at).getTime() + TWO_HOURS
-    return Number.isFinite(start) && Number.isFinite(end) && now >= start && now <= end
+    if (attendanceStart !== null && attendanceEnd !== null && Number.isFinite(attendanceStart) && Number.isFinite(attendanceEnd)) {
+      return now >= attendanceStart && now <= attendanceEnd
+    }
+    if (attendanceStart !== null && Number.isFinite(attendanceStart)) {
+      return now >= attendanceStart
+    }
+    if (attendanceEnd !== null && Number.isFinite(attendanceEnd)) {
+      return now <= attendanceEnd
+    }
+    const start = candidate.starts_at ? new Date(candidate.starts_at).getTime() - TWO_HOURS : NaN
+    const end = candidate.ends_at
+      ? new Date(candidate.ends_at).getTime() + TWO_HOURS
+      : (Number.isFinite(start) ? start + 6 * 60 * 60 * 1000 : NaN)
+    if (Number.isFinite(start) && Number.isFinite(end)) {
+      return now >= start && now <= end
+    }
+    return true
   })
   if (!session) return fail('There is no session accepting attendance right now.', 403, 'NO_ACTIVE_SESSION')
 

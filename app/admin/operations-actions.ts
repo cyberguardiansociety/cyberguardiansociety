@@ -232,23 +232,29 @@ export async function updateManagedTiming(formData: FormData) {
   const existing = allSessions.find((s) => s.id === id)
   if (!existing) fail('time-management', 'not-found')
 
-  let attendanceStartsAt: string | null = null
-  let attendanceEndsAt: string | null = null
-  let attendanceOpen = formData.get('attendanceOpen') === 'on'
+  let attendanceStartsAt: string | null = existing.attendance_starts_at
+  let attendanceEndsAt: string | null = existing.attendance_ends_at
+  let attendanceOpen = formData.has('attendanceOpen') ? formData.get('attendanceOpen') === 'on' : existing.attendance_open
   if (mode === 'session') {
     attendanceStartsAt = startsAt.toISOString()
     attendanceEndsAt = endsAt.toISOString()
+    attendanceOpen = true
   } else if (mode === 'custom') {
     const customStart = parseZonedLocalInput(textField(formData, 'attendanceStartsAt', 32), timezone)
     const customEnd = parseZonedLocalInput(textField(formData, 'attendanceEndsAt', 32), timezone)
     if (!customStart || !customEnd || customEnd <= customStart) fail('time-management', 'invalid-window')
     attendanceStartsAt = customStart.toISOString()
     attendanceEndsAt = customEnd.toISOString()
-  } else if (mode !== 'open' && mode !== 'closed') {
+    attendanceOpen = true
+  } else if (mode === 'open') {
+    attendanceOpen = true
+    attendanceStartsAt = null
+    attendanceEndsAt = null
+  } else if (mode === 'closed') {
+    attendanceOpen = false
+  } else if (mode) {
     fail('time-management', 'invalid-window')
   }
-  if (mode === 'open') attendanceOpen = true
-  if (mode === 'closed') attendanceOpen = false
 
   const statusValue = textField(formData, 'managementStatus', 20) || existing.management_status
   if (!SESSION_STATUSES.includes(statusValue as (typeof SESSION_STATUSES)[number])) fail('time-management', 'invalid-status')
@@ -262,7 +268,7 @@ export async function updateManagedTiming(formData: FormData) {
       attendance_starts_at: attendanceStartsAt,
       attendance_ends_at: attendanceEndsAt,
       attendance_open: attendanceOpen,
-      registration_open: formData.get('registrationOpen') === 'on',
+      registration_open: formData.has('registrationOpen') ? formData.get('registrationOpen') === 'on' : existing.registration_open,
       management_status: statusValue as any,
       status: statusValue === 'LIVE' ? 'current' : 'upcoming',
     },
@@ -596,6 +602,8 @@ export async function deleteRegistrant(formData: FormData) {
   const { supabase, user } = await requirePermission('sessions')
   const id = formData.get('id')
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id)) fail('registrants', 'invalid')
+  await supabase.from('cgs_attendance_records').delete().eq('registrant_id', id)
+  await supabase.from('cgs_session_registrations').delete().eq('registrant_id', id)
   const { error } = await supabase.from('cgs_registrants').delete().eq('id', id)
   if (error) fail('registrants', 'delete')
 
