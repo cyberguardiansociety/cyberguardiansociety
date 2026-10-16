@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { Shield, User, ShieldCheck, ShieldAlert, Crown } from 'lucide-react'
 import { requirePermission } from '@/lib/admin-auth'
+import { adminUrl } from '@/lib/admin-config'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
 import { createDelegatedAdmin, setDelegatedAdminActive } from '@/app/admin/management-actions'
 import AdminPermissionGrid from './AdminPermissionGrid'
@@ -23,7 +24,7 @@ type AdminUser = {
 
 export default async function AdminAdministrators() {
   const context = await requirePermission('admins')
-  if (context.admin.role !== 'super_admin') redirect('/admin?error=forbidden')
+  if (context.admin.role !== 'super_admin') redirect(adminUrl('', { error: 'forbidden' }))
   const service = createSupabaseServiceClient()
   const [{ data: profileRows, error }, { data: authUsers }] = await Promise.all([
     service.from('admin_users').select('user_id, username, role, active, is_protected, permission_keys').order('created_at', { ascending: true }),

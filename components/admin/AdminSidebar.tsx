@@ -45,36 +45,36 @@ const groups = [
   {
     label: 'Workspace',
     items: [
-      { id: 'overview',      label: 'Overview',      href: '/admin',                         icon: LayoutDashboard },
-      { id: 'inbox',         label: 'Inbox',         href: '/admin?view=inbox',               icon: Mail },
-      { id: 'applications',  label: 'Applications',  href: '/admin?view=applications',        icon: ClipboardList },
-      { id: 'speaker-applications', label: 'Speaker applications', href: '/admin?view=speaker-applications', icon: Mic },
-      { id: 'activity',      label: 'Audit log',     href: '/admin?view=activity',            icon: Activity },
+      { id: 'overview',             label: 'Overview',             href: '?view=overview',            icon: LayoutDashboard },
+      { id: 'inbox',                label: 'Inbox',                href: '?view=inbox',               icon: Mail },
+      { id: 'applications',         label: 'Applications',         href: '?view=applications',        icon: ClipboardList },
+      { id: 'speaker-applications', label: 'Speaker applications', href: '?view=speaker-applications', icon: Mic },
+      { id: 'activity',             label: 'Audit log',            href: '?view=activity',            icon: Activity },
     ],
   },
   {
     label: 'Sessions & Operations',
     items: [
-      { id: 'sessions', label: 'Online sessions', href: '/admin?view=sessions', icon: CalendarDays },
-      { id: 'time-management', label: 'Time management', href: '/admin?view=time-management', icon: CalendarClock },
-      { id: 'attendance', label: 'Attendance', href: '/admin?view=attendance', icon: ClipboardCheck },
-      { id: 'registrants', label: 'Registrants', href: '/admin?view=registrants', icon: Users },
-      { id: 'google-sync', label: 'Google sync', href: '/admin?view=google-sync', icon: RefreshCw },
+      { id: 'sessions',        label: 'Online sessions', href: '?view=sessions',        icon: CalendarDays },
+      { id: 'time-management', label: 'Time management', href: '?view=time-management', icon: CalendarClock },
+      { id: 'attendance',      label: 'Attendance',      href: '?view=attendance',      icon: ClipboardCheck },
+      { id: 'registrants',     label: 'Registrants',     href: '?view=registrants',     icon: Users },
+      { id: 'google-sync',     label: 'Google sync',     href: '?view=google-sync',     icon: RefreshCw },
     ],
   },
   {
     label: 'Content',
     items: [
-      { id: 'announcements', label: 'Announcements', href: '/admin?view=announcements', icon: Megaphone },
-      { id: 'products', label: 'Products', href: '/admin?view=products', icon: Package },
-      { id: 'resources', label: 'Free resources', href: '/admin?view=resources', icon: BookOpen },
+      { id: 'announcements', label: 'Announcements',  href: '?view=announcements', icon: Megaphone },
+      { id: 'products',      label: 'Products',       href: '?view=products',      icon: Package },
+      { id: 'resources',     label: 'Free resources', href: '?view=resources',     icon: BookOpen },
     ],
   },
   {
     label: 'Administration',
     items: [
-      { id: 'administrators', label: 'Administrators', href: '/admin?view=administrators', icon: UserCog },
-      { id: 'settings', label: 'Settings management', href: '/admin?view=settings', icon: Settings },
+      { id: 'administrators', label: 'Administrators',       href: '?view=administrators', icon: UserCog },
+      { id: 'settings',       label: 'Settings management',  href: '?view=settings',       icon: Settings },
     ],
   },
 ] as const
@@ -176,7 +176,7 @@ export default function AdminSidebar({
             const visibleItems = group.items.filter(({ id }) => {
               if (id === 'settings') return role === 'super_admin'
               if (id === 'overview' || role === 'admin' || role === 'super_admin') return true
-              if (id === 'sessions') return ['sessions', 'speakers', 'google_sync'].some((key) => permissionKeys.includes(key))
+              if (id === 'sessions' || id === 'google-sync') return ['sessions', 'speakers', 'google_sync'].some((key) => permissionKeys.includes(key))
               return permissionKeys.includes(viewPermission[id] ?? id)
             })
             if (!visibleItems.length) return null

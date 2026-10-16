@@ -32,7 +32,7 @@ export async function createFullAdminSession(userId: string, email: string, role
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    path: ADMIN_BASE_PATH,
+    path: '/',
     maxAge: 8 * 60 * 60,
   })
 
@@ -75,14 +75,14 @@ export async function destroyAdminSession(): Promise<void> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    path: ADMIN_BASE_PATH,
+    path: '/',
     maxAge: 0,
   })
   cookieStore.set(CSRF_COOKIE, '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    path: ADMIN_BASE_PATH,
+    path: '/',
     maxAge: 0,
   })
 }
@@ -102,7 +102,7 @@ export async function issueCsrfToken(): Promise<string> {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    path: ADMIN_BASE_PATH,
+    path: '/',
     maxAge: 8 * 60 * 60,
   })
 

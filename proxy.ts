@@ -101,6 +101,19 @@ export async function proxy(request: NextRequest) {
   // ==========================================
   const lowerPath = pathname.toLowerCase()
   const isAdminLoginAlias = lowerPath === '/admin/login'
+  const isAdminPath = lowerPath === '/admin' || lowerPath.startsWith('/admin/')
+
+  // If a verified admin accesses /admin directly, redirect them to the configured secret admin route
+  if (isAdminPath && !isInternalAdminRewrite(request) && !isAdminLoginAlias) {
+    const sessionToken = request.cookies.get(ADMIN_SESSION_COOKIE)?.value
+    const hasValidSession = sessionToken ? Boolean(refreshAdminSessionToken(sessionToken)) : false
+    if (hasValidSession) {
+      const internalSubPath = pathname.slice('/admin'.length) || ''
+      const targetUrl = new URL(`${ADMIN_BASE_PATH}${internalSubPath}${request.nextUrl.search}`, request.url)
+      return NextResponse.redirect(targetUrl)
+    }
+  }
+
   if (
     !isInternalAdminRewrite(request) &&
     !isAdminLoginAlias &&
@@ -184,7 +197,7 @@ export async function proxy(request: NextRequest) {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          path: ADMIN_BASE_PATH,
+          path: '/',
           maxAge: 0,
         })
       } else if (refreshedSession.refreshed) {
@@ -192,7 +205,7 @@ export async function proxy(request: NextRequest) {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
-          path: ADMIN_BASE_PATH,
+          path: '/',
           maxAge: Math.max(60, Math.floor((refreshedSession.expiresAt - Date.now()) / 1000)),
         })
       }

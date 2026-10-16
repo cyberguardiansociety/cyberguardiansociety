@@ -283,7 +283,7 @@ async function main() {
   })
 
   await checkForm('POST /api/attendance (unregistered email) → 403', async () => {
-    const res = await postJson('/api/attendance', { email: `nobody-${tag}@example.org` })
+    const res = await postJson('/api/attendance', { name: 'Smoke Unregistered', email: `nobody-${tag}@example.org` })
     if (res.status === 429) return { rateLimited: true }
     return { ok: res.status === 403 || res.status === 503, detail: `status=${res.status} ${res.text.slice(0, 120)}` }
   })

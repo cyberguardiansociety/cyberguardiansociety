@@ -14,7 +14,7 @@ import { motion, useReducedMotion } from 'motion/react'
 export default function Template({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReducedMotion()
   const pathname = usePathname()
-  const isAdmin = pathname.includes('/admin')
+  const isAdmin = pathname.includes('/admin') || pathname.startsWith('/cgs-')
 
   if (isAdmin || reduceMotion) {
     return <>{children}</>
