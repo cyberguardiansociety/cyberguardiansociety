@@ -166,7 +166,20 @@ export async function proxy(request: NextRequest) {
 
     // Map secret path back to internal /admin routes
     const internalSubPath = pathname.slice(ADMIN_BASE_PATH.length) || ''
-    const internalUrl = new URL(`/admin${internalSubPath}${request.nextUrl.search}`, request.url)
+    let internalUrl: URL
+    const cleanSection = internalSubPath.replace(/^\/+/, '')
+    if (cleanSection === 'login' || cleanSection.startsWith('login/')) {
+      internalUrl = new URL(`/admin/login${request.nextUrl.search}`, request.url)
+    } else if (cleanSection === 'mfa' || cleanSection.startsWith('mfa/')) {
+      internalUrl = new URL(`/admin/mfa${request.nextUrl.search}`, request.url)
+    } else if (cleanSection) {
+      internalUrl = new URL(`/admin${request.nextUrl.search}`, request.url)
+      if (!internalUrl.searchParams.has('view')) {
+        internalUrl.searchParams.set('view', cleanSection)
+      }
+    } else {
+      internalUrl = new URL(`/admin${request.nextUrl.search}`, request.url)
+    }
 
     const requestHeaders = new Headers(request.headers)
     createSecurityHeaders(requestHeaders)

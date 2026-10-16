@@ -53,7 +53,7 @@ export default function AdminCombobox({
   }
 
   return (
-    <div className={`admin-combobox-wrapper ${className}`}>
+    <div className={`admin-combobox-field ${className}`}>
       {label && (
         <label htmlFor={inputId} className="cms-form-label">
           <span>{label}</span>

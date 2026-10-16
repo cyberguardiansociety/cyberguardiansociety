@@ -1095,38 +1095,37 @@ export function TimeManagementClient({
                         </div>
 
                         <div className="cms-form-group">
-                          <label className="cms-form-label">
-                            <span>Lifecycle Status</span>
-                            <select
-                              name="managementStatus"
-                              defaultValue={session.management_status}
-                              className="cms-form-input"
-                            >
-                              <option value="DRAFT">Draft</option>
-                              <option value="UPCOMING">Upcoming</option>
-                              <option value="LIVE">Live</option>
-                              <option value="COMPLETED">Completed</option>
-                              <option value="CANCELLED">Cancelled</option>
-                              <option value="ARCHIVED">Archived</option>
-                            </select>
-                          </label>
+                          <AdminCombobox
+                            name="managementStatus"
+                            label="Lifecycle Status"
+                            defaultValue={session.management_status}
+                            options={[
+                              { value: 'DRAFT', label: 'Draft' },
+                              { value: 'UPCOMING', label: 'Upcoming' },
+                              { value: 'LIVE', label: 'Live' },
+                              { value: 'COMPLETED', label: 'Completed' },
+                              { value: 'CANCELLED', label: 'Cancelled' },
+                              { value: 'ARCHIVED', label: 'Archived' },
+                            ]}
+                            placeholder="Select status…"
+                          />
                         </div>
                       </div>
 
                       <div className="cms-form-row">
                         <div className="cms-form-group">
-                          <label className="cms-form-label">
-                            <span>Attendance Status</span>
-                            <select
-                              name="attendanceMode"
-                              defaultValue={session.attendance_open ? 'open' : 'closed'}
-                              className="cms-form-input"
-                            >
-                              <option value="open">Attendance Open</option>
-                              <option value="closed">Attendance Closed</option>
-                              <option value="session">Match Exact Session Time</option>
-                            </select>
-                          </label>
+                          <AdminCombobox
+                            name="attendanceMode"
+                            label="Attendance Status"
+                            defaultValue={session.attendance_open ? 'open' : 'closed'}
+                            options={[
+                              { value: 'open', label: 'Attendance Open' },
+                              { value: 'closed', label: 'Attendance Closed' },
+                              { value: 'session', label: 'Match Exact Session Time' },
+                              { value: 'custom', label: 'Custom Date / Time Window' },
+                            ]}
+                            placeholder="Select attendance mode…"
+                          />
                         </div>
                       </div>
 
@@ -1621,7 +1620,7 @@ export function RegistrantsManagementClient({
   )
 }
 
-// ─── 5. Google Sheets Sync Management Client ─────────────────────────────────
+// ─── 5. Google Sheets Sync Management Client — REDESIGNED ─────────────────────
 export function GoogleSyncManagementClient({
   sessions,
   connections,
@@ -1639,12 +1638,13 @@ export function GoogleSyncManagementClient({
 }) {
   const [copied, setCopied] = useState(false)
   const [search, setSearch] = useState('')
+  const [showGuide, setShowGuide] = useState(!connections.length)
 
   function handleCopyEmail() {
     if (!serviceAccountEmail) return
     navigator.clipboard.writeText(serviceAccountEmail)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 2500)
   }
 
   const sessionByConnection = useMemo(() => {
@@ -1679,492 +1679,525 @@ export function GoogleSyncManagementClient({
   const activeCount = connections.filter((c) => c.is_active).length
   const totalRuns = syncRuns.length
   const successfulRuns = syncRuns.filter((r) => r.status === 'success').length
+  const totalRowsSynced = syncRuns.reduce((sum, r) => sum + r.created_count + r.updated_count, 0)
 
   return (
-    <div className="sessions-management-view">
-      {/* ── Top Header ── */}
-      <div className="sessions-management-header">
-        <div>
-          <h2 className="sessions-management-title">Google Sheets Sync &amp; Registrants Roster</h2>
-          <p className="sessions-management-subtitle">
-            Connect your Google Form response spreadsheets, link sessions, and sync registered attendees automatically.
-          </p>
+    <div className="gsync-redesigned-root">
+      {/* ──────── Hero Header with Gradient Accent ──────── */}
+      <div className="gsync-hero">
+        <div className="gsync-hero-content">
+          <div className="gsync-hero-icon-wrap">
+            <div className="gsync-hero-icon-glow" />
+            <FileSpreadsheet size={22} />
+          </div>
+          <div className="gsync-hero-text">
+            <h2 className="gsync-hero-title">Google Sheets Integration</h2>
+            <p className="gsync-hero-subtitle">
+              Connect Google Form response spreadsheets and automatically sync registered participants into your session roster.
+            </p>
+          </div>
+        </div>
+        <div className="gsync-hero-pills">
+          {isConfigured ? (
+            <span className="gsync-status-chip gsync-status-chip--connected">
+              <CheckCircle2 size={13} />
+              <span>API Connected</span>
+            </span>
+          ) : (
+            <span className="gsync-status-chip gsync-status-chip--warning">
+              <ShieldAlert size={13} />
+              <span>Setup Required</span>
+            </span>
+          )}
+          <span className="gsync-status-chip gsync-status-chip--info">
+            <FileSpreadsheet size={13} />
+            <span>{connections.length} Sheet{connections.length !== 1 ? 's' : ''}</span>
+          </span>
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="cyber-kpi-grid">
-        <div className="cyber-kpi-card cyber-kpi-card--blue">
-          <div className="cyber-kpi-card__top">
-            <span className="cyber-kpi-badge cyber-kpi-badge--blue">Connections</span>
-            <div className="cyber-kpi-icon">
-              <FileSpreadsheet size={16} />
-            </div>
+      {/* ──────── KPI Metrics Dashboard ──────── */}
+      <div className="gsync-metrics-grid">
+        <div className="gsync-metric-card">
+          <div className="gsync-metric-visual gsync-metric-visual--blue">
+            <FileSpreadsheet size={18} />
           </div>
-          <div className="cyber-kpi-card__main">
-            <span className="cyber-kpi-label">Configured Sheets</span>
-            <strong className="cyber-kpi-value">{connections.length}</strong>
+          <div className="gsync-metric-data">
+            <span className="gsync-metric-number">{connections.length}</span>
+            <span className="gsync-metric-label">Connected Sheets</span>
           </div>
-          <div className="cyber-kpi-card__footer">
-            <span className="cyber-kpi-subtext">{activeCount} active pipelines</span>
+          <div className="gsync-metric-footer">
+            <span className="gsync-metric-sub">{activeCount} active</span>
           </div>
         </div>
 
-        <div className="cyber-kpi-card cyber-kpi-card--green">
-          <div className="cyber-kpi-card__top">
-            <span className="cyber-kpi-badge cyber-kpi-badge--green">API Integration</span>
-            <div className="cyber-kpi-icon">
-              <ShieldCheck size={16} />
-            </div>
+        <div className="gsync-metric-card">
+          <div className="gsync-metric-visual gsync-metric-visual--emerald">
+            <RefreshCw size={18} />
           </div>
-          <div className="cyber-kpi-card__main">
-            <span className="cyber-kpi-label">Google Service Account</span>
-            <strong className="cyber-kpi-value" style={{ fontSize: '18px' }}>
-              {isConfigured ? 'Ready to Sync' : 'Needs Config'}
-            </strong>
+          <div className="gsync-metric-data">
+            <span className="gsync-metric-number">{successfulRuns}</span>
+            <span className="gsync-metric-label">Successful Syncs</span>
           </div>
-          <div className="cyber-kpi-card__footer">
-            <span className="cyber-kpi-subtext">
-              {isConfigured ? 'Service credentials verified' : 'Set GOOGLE_SERVICE_ACCOUNT_EMAIL'}
+          <div className="gsync-metric-footer">
+            <span className="gsync-metric-sub">{totalRuns} total runs</span>
+          </div>
+        </div>
+
+        <div className="gsync-metric-card">
+          <div className="gsync-metric-visual gsync-metric-visual--purple">
+            <Users size={18} />
+          </div>
+          <div className="gsync-metric-data">
+            <span className="gsync-metric-number">{totalRowsSynced}</span>
+            <span className="gsync-metric-label">Rows Processed</span>
+          </div>
+          <div className="gsync-metric-footer">
+            <span className="gsync-metric-sub">Created &amp; updated</span>
+          </div>
+        </div>
+
+        <div className="gsync-metric-card">
+          <div className="gsync-metric-visual gsync-metric-visual--amber">
+            <ShieldCheck size={18} />
+          </div>
+          <div className="gsync-metric-data">
+            <span className="gsync-metric-number" style={{ fontSize: '16px' }}>
+              {isConfigured ? 'Ready' : 'Pending'}
+            </span>
+            <span className="gsync-metric-label">API Status</span>
+          </div>
+          <div className="gsync-metric-footer">
+            <span className="gsync-metric-sub">
+              {isConfigured ? 'Credentials verified' : 'Needs configuration'}
             </span>
           </div>
         </div>
-
-        <div className="cyber-kpi-card cyber-kpi-card--purple">
-          <div className="cyber-kpi-card__top">
-            <span className="cyber-kpi-badge cyber-kpi-badge--purple">Sync History</span>
-            <div className="cyber-kpi-icon">
-              <RefreshCw size={16} />
-            </div>
-          </div>
-          <div className="cyber-kpi-card__main">
-            <span className="cyber-kpi-label">Completed Syncs</span>
-            <strong className="cyber-kpi-value">{successfulRuns}</strong>
-          </div>
-          <div className="cyber-kpi-card__footer">
-            <span className="cyber-kpi-subtext">{totalRuns} total runs recorded</span>
-          </div>
-        </div>
       </div>
 
-      {/* ── Service Account Sharing Guide Box ── */}
-      <div className="google-sync-guide-card">
-        <div className="google-sync-guide-head">
-          <div className="google-sync-guide-icon">
-            <ShieldCheck size={18} />
-          </div>
-          <div className="google-sync-guide-titles">
-            <h3 className="google-sync-guide-title">
-              Important: Share your Google Sheet before connecting
-            </h3>
-            <p className="google-sync-guide-desc">
-              Your Google Form response sheet must be shared with the platform service account so our backend can securely read registered participant rows.
-            </p>
-          </div>
-          <div className="google-sync-status-pill-wrap">
-            {isConfigured ? (
-              <span className="google-sync-pill google-sync-pill--ready">
-                <CheckCircle2 size={13} />
-                <span>Google API Connected</span>
+      {/* ──────── Service Account Setup Wizard ──────── */}
+      <div className="gsync-setup-card">
+        <button
+          type="button"
+          className="gsync-setup-toggle"
+          onClick={() => setShowGuide((v) => !v)}
+          aria-expanded={showGuide}
+        >
+          <div className="gsync-setup-toggle-left">
+            <div className="gsync-setup-shield-icon">
+              <ShieldCheck size={16} />
+            </div>
+            <div>
+              <span className="gsync-setup-toggle-title">Service Account Setup &amp; Sheet Sharing</span>
+              <span className="gsync-setup-toggle-desc">
+                {isConfigured
+                  ? 'Your Google API credentials are configured. Share sheets with the service account below.'
+                  : 'Configure your Google service account credentials to enable sheet syncing.'}
               </span>
-            ) : (
-              <span className="google-sync-pill google-sync-pill--warn">
-                <ShieldAlert size={13} />
-                <span>API Credentials Required</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="google-sync-guide-steps">
-          <div className="google-sync-step">
-            <span className="google-sync-step-num">1</span>
-            <div className="google-sync-step-text">
-              <strong>Open your Google Sheet</strong>
-              <p>Navigate to your Google Form&apos;s responses sheet in Google Sheets.</p>
             </div>
           </div>
+          <div className="gsync-setup-toggle-right">
+            {isConfigured ? (
+              <span className="gsync-status-chip gsync-status-chip--connected" style={{ fontSize: '10px' }}>
+                <CheckCircle2 size={11} /> Configured
+              </span>
+            ) : (
+              <span className="gsync-status-chip gsync-status-chip--warning" style={{ fontSize: '10px' }}>
+                <ShieldAlert size={11} /> Setup Needed
+              </span>
+            )}
+            <ChevronDown
+              size={16}
+              className={`gsync-setup-chevron ${showGuide ? 'gsync-setup-chevron--open' : ''}`}
+            />
+          </div>
+        </button>
 
-          <div className="google-sync-step">
-            <span className="google-sync-step-num">2</span>
-            <div className="google-sync-step-text">
-              <strong>Share with Service Account</strong>
-              <p>Click the <strong>Share</strong> button (top right) and paste our Google Service Account email:</p>
-              <div className="google-sync-email-box">
-                <code className="google-sync-email-code">
+        {showGuide && (
+          <div className="gsync-setup-body">
+            <div className="gsync-setup-email-section">
+              <div className="gsync-setup-email-label">
+                <ShieldCheck size={14} className="text-blue-400" />
+                <span>Google Service Account Email</span>
+              </div>
+              <div className="gsync-setup-email-row">
+                <code className="gsync-setup-email-value">
                   {serviceAccountEmail || 'cgs-service-account@cyberguardian.iam.gserviceaccount.com'}
                 </code>
                 <button
                   type="button"
                   onClick={handleCopyEmail}
-                  className="google-sync-copy-btn"
+                  className="gsync-setup-copy-btn"
                   title="Copy Service Account Email"
                 >
-                  {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                  <span>{copied ? 'Copied!' : 'Copy Email'}</span>
+                  {copied ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                  <span>{copied ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
             </div>
-          </div>
 
-          <div className="google-sync-step">
-            <span className="google-sync-step-num">3</span>
-            <div className="google-sync-step-text">
-              <strong>Set Viewer Access &amp; Connect</strong>
-              <p>Set permission to <strong>Viewer</strong>, uncheck &quot;Notify people&quot;, click <strong>Share</strong>, then copy the Sheet ID or full URL and paste it below.</p>
+            <div className="gsync-setup-steps-grid">
+              <div className="gsync-setup-step-card">
+                <div className="gsync-setup-step-badge">1</div>
+                <div className="gsync-setup-step-content">
+                  <strong>Open Google Sheet</strong>
+                  <p>Navigate to the Google Form responses spreadsheet you want to connect.</p>
+                </div>
+              </div>
+              <div className="gsync-setup-step-card">
+                <div className="gsync-setup-step-badge">2</div>
+                <div className="gsync-setup-step-content">
+                  <strong>Share with Service Account</strong>
+                  <p>Click <strong>Share</strong>, paste the service account email, and grant <strong>Viewer</strong> access.</p>
+                </div>
+              </div>
+              <div className="gsync-setup-step-card">
+                <div className="gsync-setup-step-badge">3</div>
+                <div className="gsync-setup-step-content">
+                  <strong>Connect &amp; Sync</strong>
+                  <p>Copy the spreadsheet ID from the URL bar and use the form below to create a new connection.</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* ── Main Two-Column Layout ── */}
-      <div className="cms-split-grid" style={{ marginTop: '20px' }}>
-        {/* Left Column: Connect Sheet Form */}
-        <div className="cms-form-col">
-          <div className="cms-form-card">
-            <div className="cms-form-card__head">
-              <div className="cms-form-icon-wrap">
-                <Plus size={16} />
+      {/* ──────── Main 2-Column Layout ──────── */}
+      <div className="gsync-main-grid">
+        {/* Left: Connect New Sheet Form */}
+        <div className="gsync-form-panel">
+          <div className="gsync-panel-card">
+            <div className="gsync-panel-header">
+              <div className="gsync-panel-header-icon">
+                <Plus size={15} />
               </div>
               <div>
-                <h3 className="cms-form-title">Connect Google Sheet</h3>
-                <p className="cms-form-subtitle">Register a new registration responses spreadsheet</p>
+                <h3 className="gsync-panel-title">Connect Google Sheet</h3>
+                <p className="gsync-panel-desc">Register a new registration responses spreadsheet</p>
               </div>
             </div>
 
-            <div className="cms-form-card__body">
-              <form action={createGoogleConnection} className="cms-unified-form">
-                <div className="cms-form-group">
-                  <label className="cms-form-label">
-                    <span>Connection / Form Title</span>
-                    <strong className="text-red-400">*</strong>
-                  </label>
-                  <input
-                    name="name"
-                    type="text"
-                    required
-                    maxLength={160}
-                    placeholder="e.g. Spring 2026 Bootcamp Registration"
-                    className="cms-form-input"
-                  />
-                  <small className="cms-form-hint">A descriptive name for internal management</small>
-                </div>
+            <form action={createGoogleConnection} className="gsync-connect-form">
+              <div className="gsync-field-group">
+                <label className="gsync-field-label">
+                  <span>Connection Name <strong className="cms-required">*</strong></span>
+                </label>
+                <input
+                  name="name"
+                  type="text"
+                  required
+                  maxLength={160}
+                  placeholder="e.g. Spring 2026 Bootcamp Registration"
+                  className="gsync-field-input"
+                />
+                <span className="gsync-field-hint">A descriptive name for internal management</span>
+              </div>
 
-                <div className="cms-form-group" style={{ marginTop: '14px' }}>
-                  <label className="cms-form-label">
-                    <span>Spreadsheet ID or Browser URL</span>
-                    <strong className="text-red-400">*</strong>
-                  </label>
-                  <input
-                    name="spreadsheetId"
-                    type="text"
-                    required
-                    maxLength={200}
-                    placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
-                    className="cms-form-input"
-                  />
-                  <small className="cms-form-hint">
-                    You can paste either the 44-character ID or the full URL (<code>https://docs.google.com/spreadsheets/d/...</code>)
-                  </small>
-                </div>
+              <div className="gsync-field-group">
+                <label className="gsync-field-label">
+                  <span>Spreadsheet ID or URL <strong className="cms-required">*</strong></span>
+                </label>
+                <input
+                  name="spreadsheetId"
+                  type="text"
+                  required
+                  maxLength={200}
+                  placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                  className="gsync-field-input"
+                />
+                <span className="gsync-field-hint">
+                  Paste the 44-char ID or the full <code>https://docs.google.com/spreadsheets/d/...</code> URL
+                </span>
+              </div>
 
-                <div className="cms-form-group" style={{ marginTop: '14px' }}>
-                  <label className="cms-form-label">
-                    <span>Sheet Tab Name</span>
-                  </label>
-                  <input
-                    name="sheetName"
-                    type="text"
-                    defaultValue="Form Responses 1"
-                    maxLength={300}
-                    placeholder="Form Responses 1"
-                    className="cms-form-input"
-                  />
-                  <small className="cms-form-hint">
-                    Exact name of the sheet tab (Google Forms defaults to &quot;Form Responses 1&quot;)
-                  </small>
-                </div>
+              <div className="gsync-field-group">
+                <label className="gsync-field-label">
+                  <span>Sheet Tab Name</span>
+                </label>
+                <input
+                  name="sheetName"
+                  type="text"
+                  defaultValue="Form Responses 1"
+                  maxLength={300}
+                  placeholder="Form Responses 1"
+                  className="gsync-field-input"
+                />
+                <span className="gsync-field-hint">
+                  Exact tab name (Google Forms defaults to &quot;Form Responses 1&quot;)
+                </span>
+              </div>
 
-                <div className="cms-form-group" style={{ marginTop: '14px' }}>
-                  <label className="cms-form-label">
-                    <span>Link to Session (Optional)</span>
-                  </label>
-                  <select name="sessionId" className="cms-form-select">
-                    <option value="">General Roster (Do not link to a specific session)</option>
-                    {sessions.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.title} ({displayDate(s.starts_at)})
-                      </option>
-                    ))}
-                  </select>
-                  <small className="cms-form-hint">
-                    Syncing will automatically associate attendees with this session
-                  </small>
-                </div>
+              <div className="gsync-field-group">
+                <AdminCombobox
+                  name="sessionId"
+                  label="Link to Session (Optional)"
+                  defaultValue=""
+                  options={[
+                    { value: '', label: 'General Roster (No session link)' },
+                    ...sessions.map((s) => ({
+                      value: s.id,
+                      label: `${s.title} (${displayDate(s.starts_at)})`,
+                    })),
+                  ]}
+                  placeholder="Select a session to link…"
+                />
+              </div>
 
-                <button
-                  type="submit"
-                  className="admin-primary-button"
-                  style={{ marginTop: '18px', width: '100%', justifyContent: 'center' }}
-                >
-                  <FileSpreadsheet size={15} />
-                  <span>Connect Spreadsheet</span>
-                </button>
-              </form>
-            </div>
+              <button type="submit" className="gsync-submit-btn">
+                <FileSpreadsheet size={15} />
+                <span>Connect Spreadsheet</span>
+              </button>
+            </form>
           </div>
         </div>
 
-        {/* Right Column: Connected Sheets List */}
-        <div className="cms-records-col">
-          <div className="cms-records-card">
-            <div className="cms-records-card__head">
-              <div className="cms-records-title-wrap">
-                <h3 className="cms-records-title">Connected Google Sheets</h3>
-                <span className="cms-records-count">{connections.length} total connections</span>
+        {/* Right: Connected Sheets Pipeline */}
+        <div className="gsync-connections-panel">
+          <div className="gsync-panel-card">
+            <div className="gsync-panel-header">
+              <div className="gsync-panel-header-icon gsync-panel-header-icon--green">
+                <FileSpreadsheet size={15} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 className="gsync-panel-title">Connected Pipelines</h3>
+                <p className="gsync-panel-desc">{connections.length} total · {activeCount} active</p>
               </div>
             </div>
 
-            <div className="sessions-list-container" style={{ padding: '14px' }}>
-              <div className="cms-filter-toolbar" style={{ marginBottom: '16px' }}>
-                <div className="cms-filter-search" style={{ width: '100%' }}>
-                  <Search size={14} className="cms-search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Search connected sheets by title or ID..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="cms-search-input"
-                  />
-                  {search && (
-                    <button
-                      type="button"
-                      onClick={() => setSearch('')}
-                      className="cms-search-clear"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
+            {/* Search */}
+            <div className="gsync-connections-search">
+              <Search size={14} className="gsync-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by name, sheet ID, or tab…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="gsync-search-input"
+              />
+              {search && (
+                <button type="button" onClick={() => setSearch('')} className="gsync-search-clear">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Error State */}
+            {error && (
+              <div className="gsync-error-banner">
+                <AlertCircle size={14} />
+                <span>Google Sheet connections could not be loaded from the database.</span>
               </div>
+            )}
 
-              {error && (
-                <p role="alert" className="admin-empty">
-                  Google Sheet connections could not be loaded.
-                </p>
-              )}
-
-              {!error && !filteredConnections.length && (
-                <div className="cms-empty-state">
-                  <div className="cms-empty-icon">
-                    <FileSpreadsheet size={24} />
-                  </div>
-                  <h4 className="cms-empty-title">No Google Sheets Connected</h4>
-                  <p className="cms-empty-subtitle">
-                    Add your registration form spreadsheet on the left to start syncing participants.
-                  </p>
+            {/* Empty State */}
+            {!error && !filteredConnections.length && (
+              <div className="gsync-empty-state">
+                <div className="gsync-empty-icon">
+                  <FileSpreadsheet size={28} />
                 </div>
-              )}
+                <h4>No Sheets Connected</h4>
+                <p>Add your first Google Form response spreadsheet using the form on the left to start syncing participants.</p>
+              </div>
+            )}
 
-              {!error && filteredConnections.length > 0 && (
-                <div className="sessions-cards-stack">
-                  {filteredConnections.map((conn) => {
-                    const linkedSession = sessionByConnection.get(conn.id)
-                    const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${conn.spreadsheet_id}`
+            {/* Connection Cards */}
+            {!error && filteredConnections.length > 0 && (
+              <div className="gsync-pipeline-stack">
+                {filteredConnections.map((conn) => {
+                  const linkedSession = sessionByConnection.get(conn.id)
+                  const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${conn.spreadsheet_id}`
+                  const runsForThis = syncRuns.filter((r) => r.connection_id === conn.id)
+                  const lastRun = runsForThis[0]
 
-                    return (
-                      <AccordionCard
-                        key={conn.id}
-                        header={
-                          <div className="session-card-header-grid">
-                            <div className="session-card-icon-col">
-                              <span
-                                className={`google-sheet-status-dot ${
-                                  conn.is_active ? 'google-sheet-status-dot--active' : 'google-sheet-status-dot--paused'
-                                }`}
-                              />
-                            </div>
-
-                            <div className="session-card-main-col">
-                              <div className="session-card-title-row">
-                                <strong className="session-card-title">{conn.name}</strong>
-                                <span className="session-tag-chip">{conn.sheet_name}</span>
-                              </div>
-                              <div className="session-card-meta-row">
-                                <span className="session-card-time">
-                                  <Clock size={12} />
-                                  Last synced: {displayDate(conn.last_synced_at)}
-                                </span>
-                                {linkedSession && (
-                                  <span className="session-card-link-preview text-blue-400">
-                                    Linked: {linkedSession.title}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-
-                            <div className="session-card-badges-col" style={{ gap: '8px', alignItems: 'center' }}>
-                              <form action={syncGoogleConnectionNow} className="cms-inline-del-form">
-                                <input type="hidden" name="id" value={conn.id} />
-                                <button
-                                  type="submit"
-                                  className="admin-secondary-button"
-                                  style={{ fontSize: '11px', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '5px' }}
-                                  title="Sync now"
-                                >
-                                  <RefreshCw size={12} />
-                                  <span>Sync Now</span>
-                                </button>
-                              </form>
-
-                              <span
-                                className={`session-status-badge ${
-                                  conn.is_active ? 'session-status-badge--live' : 'session-status-badge--draft'
-                                }`}
-                              >
-                                {conn.is_active ? 'Active' : 'Paused'}
+                  return (
+                    <div
+                      key={conn.id}
+                      className={`gsync-pipeline-card ${conn.is_active ? 'gsync-pipeline-card--active' : 'gsync-pipeline-card--paused'}`}
+                    >
+                      {/* Card Header */}
+                      <div className="gsync-pipeline-head">
+                        <div className="gsync-pipeline-dot-wrap">
+                          <span
+                            className={`gsync-pipeline-dot ${conn.is_active ? 'gsync-pipeline-dot--active' : 'gsync-pipeline-dot--paused'}`}
+                          />
+                        </div>
+                        <div className="gsync-pipeline-info">
+                          <strong className="gsync-pipeline-name">{conn.name}</strong>
+                          <div className="gsync-pipeline-meta">
+                            <span className="gsync-pipeline-tag">{conn.sheet_name}</span>
+                            {linkedSession && (
+                              <span className="gsync-pipeline-link">
+                                → {linkedSession.title}
                               </span>
-                            </div>
+                            )}
                           </div>
+                        </div>
+                        <div className="gsync-pipeline-actions-top">
+                          <form action={syncGoogleConnectionNow} className="gsync-inline-form">
+                            <input type="hidden" name="id" value={conn.id} />
+                            <button
+                              type="submit"
+                              className="gsync-action-btn gsync-action-btn--sync"
+                              title="Sync now"
+                            >
+                              <RefreshCw size={13} />
+                              <span>Sync</span>
+                            </button>
+                          </form>
+
+                          <a
+                            href={googleSheetUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="gsync-action-btn gsync-action-btn--open"
+                            title="Open in Google Sheets"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+
+                          <span className={`gsync-badge ${conn.is_active ? 'gsync-badge--active' : 'gsync-badge--paused'}`}>
+                            {conn.is_active ? 'Active' : 'Paused'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Sync Timeline Indicator */}
+                      <div className="gsync-pipeline-timeline">
+                        <Clock size={11} />
+                        <span>
+                          Last synced: {conn.last_synced_at ? displayDate(conn.last_synced_at) : 'Never'}
+                        </span>
+                        {lastRun && (
+                          <span className={`gsync-run-status gsync-run-status--${lastRun.status}`}>
+                            {lastRun.status === 'success' ? 'OK' : lastRun.status === 'error' ? 'Failed' : 'Running'}
+                            {lastRun.status === 'success' && ` (+${lastRun.created_count})`}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Expandable Edit Form */}
+                      <AccordionCard
+                        header={
+                          <span className="gsync-edit-toggle-label">Edit Connection Configuration</span>
                         }
                       >
-                        <div className="session-accordion-content-box">
-                          <div className="session-accordion-toolbar">
-                            <span className="session-toolbar-label">Connection Details &amp; Configuration</span>
-                            <div className="flex items-center gap-2">
-                              <a
-                                href={googleSheetUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="admin-secondary-button"
-                                style={{ fontSize: '12px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
-                              >
-                                <ExternalLink size={12} />
-                                <span>Open in Google Sheets</span>
-                              </a>
+                        <form action={updateGoogleConnection} className="gsync-edit-form">
+                          <input type="hidden" name="id" value={conn.id} />
+
+                          <div className="gsync-edit-row">
+                            <div className="gsync-field-group gsync-field-group--compact">
+                              <label className="gsync-field-label">Connection Name</label>
+                              <input
+                                name="name"
+                                type="text"
+                                required
+                                defaultValue={conn.name}
+                                className="gsync-field-input"
+                              />
+                            </div>
+                            <div className="gsync-field-group gsync-field-group--compact">
+                              <label className="gsync-field-label">Sheet Tab Name</label>
+                              <input
+                                name="sheetName"
+                                type="text"
+                                required
+                                defaultValue={conn.sheet_name}
+                                className="gsync-field-input"
+                              />
                             </div>
                           </div>
 
-                          <form action={updateGoogleConnection} className="cms-unified-form" style={{ marginTop: '12px' }}>
+                          <div className="gsync-field-group gsync-field-group--compact">
+                            <label className="gsync-field-label">Spreadsheet ID</label>
+                            <input
+                              name="spreadsheetId"
+                              type="text"
+                              required
+                              defaultValue={conn.spreadsheet_id}
+                              className="gsync-field-input"
+                            />
+                          </div>
+
+                          <div className="gsync-field-group gsync-field-group--compact">
+                            <AdminCombobox
+                              name="sessionId"
+                              label="Linked Session"
+                              defaultValue={linkedSession?.id || ''}
+                              options={[
+                                { value: '', label: 'None (General Roster)' },
+                                ...sessions.map((s) => ({
+                                  value: s.id,
+                                  label: `${s.title} (${displayDate(s.starts_at)})`,
+                                })),
+                              ]}
+                              placeholder="Select linked session…"
+                            />
+                          </div>
+
+                          <div className="gsync-edit-actions">
+                            <button type="submit" className="gsync-action-btn gsync-action-btn--save">
+                              <Check size={13} />
+                              <span>Save Changes</span>
+                            </button>
+                          </div>
+                        </form>
+
+                        <div className="gsync-edit-secondary-actions">
+                          <form action={setGoogleConnectionActive} className="gsync-inline-form">
                             <input type="hidden" name="id" value={conn.id} />
+                            <input type="hidden" name="isActive" value={conn.is_active ? 'false' : 'true'} />
+                            <button type="submit" className="gsync-action-btn gsync-action-btn--toggle">
+                              {conn.is_active ? 'Pause' : 'Resume'}
+                            </button>
+                          </form>
 
-                            <div className="cms-form-row">
-                              <div className="cms-form-group">
-                                <label className="cms-form-label">Connection Name</label>
-                                <input
-                                  name="name"
-                                  type="text"
-                                  required
-                                  defaultValue={conn.name}
-                                  className="cms-form-input"
-                                />
-                              </div>
-
-                              <div className="cms-form-group">
-                                <label className="cms-form-label">Sheet Tab Name</label>
-                                <input
-                                  name="sheetName"
-                                  type="text"
-                                  required
-                                  defaultValue={conn.sheet_name}
-                                  className="cms-form-input"
-                                />
-                              </div>
-                            </div>
-
-                            <div className="cms-form-group" style={{ marginTop: '10px' }}>
-                              <label className="cms-form-label">Spreadsheet ID</label>
-                              <input
-                                name="spreadsheetId"
-                                type="text"
-                                required
-                                defaultValue={conn.spreadsheet_id}
-                                className="cms-form-input"
-                              />
-                            </div>
-
-                            <div className="cms-form-group" style={{ marginTop: '10px' }}>
-                              <label className="cms-form-label">Linked Session</label>
-                              <select
-                                name="sessionId"
-                                defaultValue={linkedSession?.id || ''}
-                                className="cms-form-select"
-                              >
-                                <option value="">None (General Roster)</option>
-                                {sessions.map((s) => (
-                                  <option key={s.id} value={s.id}>
-                                    {s.title} ({displayDate(s.starts_at)})
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="flex items-center justify-between" style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--adm-edge)' }}>
-                              <button type="submit" className="admin-primary-button" style={{ fontSize: '12px', padding: '6px 14px' }}>
-                                Save Changes
-                              </button>
-
-                              <div className="flex items-center gap-2">
-                                <form action={setGoogleConnectionActive} className="inline">
-                                  <input type="hidden" name="id" value={conn.id} />
-                                  <input type="hidden" name="isActive" value={conn.is_active ? 'false' : 'true'} />
-                                  <button
-                                    type="submit"
-                                    className="admin-secondary-button"
-                                    style={{ fontSize: '12px', padding: '6px 12px' }}
-                                  >
-                                    {conn.is_active ? 'Pause Sync' : 'Resume Sync'}
-                                  </button>
-                                </form>
-
-                                <form action={deleteGoogleConnection} className="inline">
-                                  <input type="hidden" name="id" value={conn.id} />
-                                  <button
-                                    type="submit"
-                                    className="cms-row-delete-btn"
-                                    title="Delete connection"
-                                    onClick={(e) => {
-                                      if (!window.confirm(`Delete Google Sheet connection "${conn.name}"? This will not delete previously synced participants.`)) {
-                                        e.preventDefault()
-                                      }
-                                    }}
-                                  >
-                                    <Trash2 size={13} />
-                                  </button>
-                                </form>
-                              </div>
-                            </div>
+                          <form action={deleteGoogleConnection} className="gsync-inline-form">
+                            <input type="hidden" name="id" value={conn.id} />
+                            <button
+                              type="submit"
+                              className="gsync-action-btn gsync-action-btn--delete"
+                              title="Delete connection"
+                              onClick={(e) => {
+                                if (!window.confirm(`Delete Google Sheet connection "${conn.name}"? Previously synced participants will not be deleted.`)) {
+                                  e.preventDefault()
+                                }
+                              }}
+                            >
+                              <Trash2 size={12} />
+                            </button>
                           </form>
                         </div>
                       </AccordionCard>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* ── Recent Synchronization History Table ── */}
-      <div className="cms-records-card" style={{ marginTop: '24px' }}>
-        <div className="cms-records-card__head">
-          <div className="cms-records-title-wrap">
-            <h3 className="cms-records-title">Synchronization Audit &amp; Activity Log</h3>
-            <span className="cms-records-count">{syncRuns.length} recent runs</span>
+      {/* ──────── Sync Audit Activity Log ──────── */}
+      <div className="gsync-audit-card">
+        <div className="gsync-audit-header">
+          <div className="gsync-audit-header-left">
+            <RefreshCw size={16} className="text-blue-400" />
+            <div>
+              <h3 className="gsync-audit-title">Synchronization Audit Log</h3>
+              <span className="gsync-audit-count">{syncRuns.length} recent runs</span>
+            </div>
           </div>
         </div>
 
         <div className="admin-table-wrap">
           {!syncRuns.length ? (
-            <div className="cms-empty-state">
-              <div className="cms-empty-icon">
-                <RefreshCw size={24} />
+            <div className="gsync-empty-state" style={{ padding: '32px' }}>
+              <div className="gsync-empty-icon">
+                <RefreshCw size={28} />
               </div>
-              <h4 className="cms-empty-title">No Sync Runs Recorded</h4>
-              <p className="cms-empty-subtitle">
-                Click &quot;Sync Now&quot; on any connected Google Sheet to fetch responses and populate the log.
-              </p>
+              <h4>No Sync Runs Recorded</h4>
+              <p>Click &quot;Sync&quot; on any connected sheet to fetch responses and populate this log.</p>
             </div>
           ) : (
             <table className="admin-table">
@@ -2173,10 +2206,10 @@ export function GoogleSyncManagementClient({
                   <th>Status</th>
                   <th>Google Sheet</th>
                   <th>Finished</th>
-                  <th>Rows Processed</th>
-                  <th>New Registrants</th>
+                  <th>Rows Read</th>
+                  <th>New</th>
                   <th>Updated</th>
-                  <th>Duplicates / Skipped</th>
+                  <th>Skipped</th>
                   <th>Details</th>
                 </tr>
               </thead>
@@ -2189,25 +2222,12 @@ export function GoogleSyncManagementClient({
                   return (
                     <tr key={run.id}>
                       <td data-label="Status">
-                        <span
-                          className={`session-status-badge ${
-                            isSuccess
-                              ? 'session-status-badge--live'
-                              : isError
-                              ? 'session-status-badge--draft'
-                              : 'session-status-badge--outline'
-                          }`}
-                          style={{
-                            backgroundColor: isSuccess ? 'rgba(16, 185, 129, 0.15)' : isError ? 'rgba(239, 68, 68, 0.15)' : undefined,
-                            color: isSuccess ? '#10b981' : isError ? '#ef4444' : undefined,
-                            borderColor: isSuccess ? 'rgba(16, 185, 129, 0.3)' : isError ? 'rgba(239, 68, 68, 0.3)' : undefined,
-                          }}
-                        >
-                          {isSuccess ? 'Success' : isError ? 'Error' : 'Running'}
+                        <span className={`gsync-run-badge gsync-run-badge--${run.status}`}>
+                          {isSuccess ? '✓ Success' : isError ? '✗ Error' : '⟳ Running'}
                         </span>
                       </td>
-                      <td data-label="Google Sheet">
-                        <strong>{conn ? conn.name : 'Unknown Connection'}</strong>
+                      <td data-label="Sheet">
+                        <strong>{conn ? conn.name : 'Unknown'}</strong>
                       </td>
                       <td data-label="Finished">
                         <span className="table-time-text">{displayDate(run.finished_at || run.started_at)}</span>
@@ -2221,14 +2241,14 @@ export function GoogleSyncManagementClient({
                       <td data-label="Updated">
                         <span className="count-badge">{run.updated_count}</span>
                       </td>
-                      <td data-label="Duplicates">
+                      <td data-label="Skipped">
                         <span className="table-time-text">{run.duplicate_count + run.invalid_count}</span>
                       </td>
                       <td data-label="Details">
                         {run.error_message ? (
-                          <span className="text-red-400 text-xs">{run.error_message}</span>
+                          <span className="gsync-error-text">{run.error_message}</span>
                         ) : (
-                          <span className="text-emerald-400 text-xs">Sync verified</span>
+                          <span className="gsync-ok-text">Sync verified</span>
                         )}
                       </td>
                     </tr>
@@ -2242,4 +2262,3 @@ export function GoogleSyncManagementClient({
     </div>
   )
 }
-

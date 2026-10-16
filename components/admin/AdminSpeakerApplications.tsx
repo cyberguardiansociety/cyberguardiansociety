@@ -1,4 +1,4 @@
-import { Mic, Mail, Clock, Calendar, Trash2, CheckCircle, AlertCircle } from 'lucide-react'
+import { Mic, Mail, Clock, Calendar, Trash2, CheckCircle, AlertCircle, ChevronDown } from 'lucide-react'
 import { requirePermission } from '@/lib/admin-auth'
 import { updateInboxMessageStatus } from '@/app/admin/operations-actions'
 import { deleteSpeakerApplication } from '@/app/admin/management-actions'
@@ -100,14 +100,25 @@ export default async function AdminSpeakerApplications() {
               <div className="admin-management-actions admin-modern-card-actions">
                 <form action={updateInboxMessageStatus} className="admin-review-form admin-modern-review-form">
                   <input type="hidden" name="id" value={application.id} />
-                  <label className="admin-label">
-                    <span>Status</span>
-                    <select name="status" defaultValue={application.status}>
-                      <option value="new">New</option>
-                      <option value="in_progress">In progress</option>
-                      <option value="closed">Closed</option>
-                    </select>
-                  </label>
+                  <div className="admin-review-combobox-group">
+                    <label htmlFor={`speaker-status-${application.id}`} className="admin-review-combobox-label">
+                      Status
+                    </label>
+                    <div className="admin-combobox-wrapper admin-combobox-wrapper--review">
+                      <span className="admin-combobox-dot" data-status={application.status} />
+                      <select
+                        id={`speaker-status-${application.id}`}
+                        name="status"
+                        defaultValue={application.status}
+                        className="admin-combobox-select admin-combobox-select--review"
+                      >
+                        <option value="new">New</option>
+                        <option value="in_progress">In progress</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                      <ChevronDown size={13} className="admin-combobox-chevron" />
+                    </div>
+                  </div>
                   <button type="submit" className="admin-primary-button admin-modern-button">
                     <CheckCircle size={14} />
                     Save status

@@ -16,6 +16,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: process.env.NEXT_IGNORE_TYPECHECK === '1',
   },
+  async rewrites() {
+    return [
+      {
+        source: '/admin/:section(overview|inbox|applications|speaker-applications|activity|sessions|time-management|attendance|registrants|google-sync|speakers|announcements|products|merchandise|resources|administrators|settings)',
+        destination: '/admin?view=:section',
+      },
+    ]
+  },
   async headers() {
     return [
       {
