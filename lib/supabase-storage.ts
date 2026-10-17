@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import { createHmac, randomUUID } from 'crypto'
-import { SESSION_SECRET } from '@/lib/admin-config'
+import { getDerivedFileSigningSecret } from '@/lib/admin-config'
 import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
@@ -29,6 +29,53 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
 }
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const MAX_PRIVATE_BYTES = 25 * 1024 * 1024
+
+function validateImageMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  if (buffer.length < 12) return false
+  switch (mimeType) {
+    case 'image/png':
+      return (
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a
+      )
+    case 'image/jpeg':
+      return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
+    case 'image/gif':
+      return (
+        buffer[0] === 0x47 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x38 &&
+        (buffer[4] === 0x37 || buffer[4] === 0x39) &&
+        buffer[5] === 0x61
+      )
+    case 'image/webp':
+      return (
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      )
+    case 'image/avif': {
+      const ftyp = buffer.subarray(4, 8).toString('ascii')
+      const brand = buffer.subarray(8, 12).toString('ascii')
+      return ftyp === 'ftyp' && (brand === 'avif' || brand === 'avis' || brand === 'mif1')
+    }
+    default:
+      return false
+  }
+}
 
 /** Rejects path traversal and absolute paths; returns a clean relative path. */
 function sanitizeRelativePath(input: string): string | null {
@@ -51,7 +98,16 @@ function resolvePrivatePath(relative: string): string | null {
 }
 
 export function isStorageConfigured(): boolean {
-  return true
+  if (isSupabaseRuntimeConfigured()) {
+    return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
+  }
+  try {
+    fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true })
+    fs.mkdirSync(PRIVATE_ROOT, { recursive: true })
+    return true
+  } catch {
+    return false
+  }
 }
 
 // ────────────────────────── Public content images ──────────────────────────
@@ -80,6 +136,9 @@ export async function uploadPublicContentImage(
     }
     if (buffer.length > MAX_IMAGE_BYTES) {
       return { ok: false, error: 'Image must be smaller than 5 MB.' }
+    }
+    if (!validateImageMagicBytes(buffer, type)) {
+      return { ok: false, error: 'File contents do not match the specified image format.' }
     }
 
     const filename = `${randomUUID()}.${extension}`
@@ -114,26 +173,38 @@ export async function uploadPrivateObject(options: {
   upsert?: boolean
 }): Promise<UploadPrivateResult> {
   try {
-    const full = resolvePrivatePath(options.path)
-    if (!full) return { ok: false, path: options.path, error: 'Invalid storage path.' }
+    const safe = sanitizeRelativePath(options.path)
+    if (!safe) return { ok: false, path: options.path, error: 'Invalid storage path.' }
 
     const buffer = Buffer.isBuffer(options.body)
       ? options.body
       : Buffer.from(options.body as any)
+
+    if (buffer.length > MAX_PRIVATE_BYTES) {
+      return { ok: false, path: safe, error: 'The file exceeds the maximum allowed upload limit (25 MB).' }
+    }
+
     if (isSupabaseRuntimeConfigured()) {
       const { error } = await createSupabaseServiceClient().storage!.from('admin-private').upload(
-        options.path,
+        safe,
         buffer,
         { contentType: options.contentType || 'application/octet-stream', upsert: Boolean(options.upsert) },
       )
-      if (error) return { ok: false, path: options.path, error: 'The file could not be stored.' }
-      return { ok: true, path: options.path }
+      if (error) return { ok: false, path: safe, error: 'The file could not be stored.' }
+      return { ok: true, path: safe }
+    }
+
+    const full = resolvePrivatePath(safe)
+    if (!full) return { ok: false, path: safe, error: 'Invalid storage path.' }
+
+    if (!options.upsert && fs.existsSync(full)) {
+      return { ok: false, path: safe, error: 'File already exists and overwrite is disabled.' }
     }
 
     fs.mkdirSync(path.dirname(full), { recursive: true })
     fs.writeFileSync(full, buffer)
 
-    return { ok: true, path: options.path, error: undefined }
+    return { ok: true, path: safe, error: undefined }
   } catch (err) {
     console.error('[storage] Private object upload failed:', err)
     return { ok: false, path: options.path, error: 'The file could not be stored.' }
@@ -142,11 +213,14 @@ export async function uploadPrivateObject(options: {
 
 export async function readPrivateText(relativePath: string): Promise<string | null> {
   try {
+    const safe = sanitizeRelativePath(relativePath)
+    if (!safe) return null
+
     if (isSupabaseRuntimeConfigured()) {
-      const body = await readPrivateObject(relativePath)
+      const body = await readPrivateObject(safe)
       return body ? Buffer.from(body).toString('utf-8') : null
     }
-    const full = resolvePrivatePath(relativePath)
+    const full = resolvePrivatePath(safe)
     if (!full || !fs.existsSync(full)) return null
     return fs.readFileSync(full, 'utf-8')
   } catch (err) {
@@ -157,11 +231,14 @@ export async function readPrivateText(relativePath: string): Promise<string | nu
 
 export async function readPrivateObject(relativePath: string): Promise<Uint8Array | null> {
   try {
+    const safe = sanitizeRelativePath(relativePath)
+    if (!safe) return null
+
     if (isSupabaseRuntimeConfigured()) {
-      const { data, error } = await createSupabaseServiceClient().storage!.from('admin-private').download(relativePath)
+      const { data, error } = await createSupabaseServiceClient().storage!.from('admin-private').download(safe)
       return error || !data ? null : new Uint8Array(await data.arrayBuffer())
     }
-    const full = resolvePrivatePath(relativePath)
+    const full = resolvePrivatePath(safe)
     return full && fs.existsSync(full) ? new Uint8Array(fs.readFileSync(full)) : null
   } catch (err) {
     console.error('[storage] Private object read failed:', err)
@@ -171,11 +248,14 @@ export async function readPrivateObject(relativePath: string): Promise<Uint8Arra
 
 export async function deletePrivateObject(relativePath: string): Promise<boolean> {
   try {
+    const safe = sanitizeRelativePath(relativePath)
+    if (!safe) return false
+
     if (isSupabaseRuntimeConfigured()) {
-      const { error } = await createSupabaseServiceClient().storage!.from('admin-private').remove([relativePath])
+      const { error } = await createSupabaseServiceClient().storage!.from('admin-private').remove([safe])
       return !error
     }
-    const full = resolvePrivatePath(relativePath)
+    const full = resolvePrivatePath(safe)
     if (!full || !fs.existsSync(full)) return true
     fs.unlinkSync(full)
     return true
@@ -190,12 +270,15 @@ export async function deletePrivateApplication(directory: string): Promise<boole
     const safe = sanitizeRelativePath(directory)
     if (!safe || !safe.startsWith('applications/')) return false
     if (isSupabaseRuntimeConfigured()) {
-      const objects = await listPrivateObjects(safe, 1000)
-      if (!objects) return false
-      if (!objects.length) return true
-      const { error } = await createSupabaseServiceClient().storage!.from('admin-private')
-        .remove(objects.map((object) => `${safe}/${object.name}`))
-      return !error
+      const storage = createSupabaseServiceClient().storage!.from('admin-private')
+      while (true) {
+        const objects = await listPrivateObjects(safe, 1000)
+        if (!objects) return false
+        if (!objects.length) return true
+        const { error } = await storage.remove(objects.map((object) => `${safe}/${object.name}`))
+        if (error) return false
+        if (objects.length < 1000) return true
+      }
     }
     const full = path.resolve(PRIVATE_ROOT, safe)
     if (!full.startsWith(PRIVATE_ROOT + path.sep)) return false
@@ -266,7 +349,7 @@ export async function listPrivateObjects(
 
 export function createPrivateSignedUrl(relativePath: string, ttlSeconds = 300): string {
   const expires = Math.floor(Date.now() / 1000) + ttlSeconds
-  const signature = createHmac('sha256', SESSION_SECRET)
+  const signature = createHmac('sha256', getDerivedFileSigningSecret())
     .update(`${relativePath}|${expires}`)
     .digest('hex')
   const query = new URLSearchParams({

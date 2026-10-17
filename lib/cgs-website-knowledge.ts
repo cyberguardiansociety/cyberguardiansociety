@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { load } from 'cheerio'
+import { ADMIN_BASE_PATH } from '@/lib/admin-config'
 
 const CACHE_TTL_MS = 5 * 60 * 1000
 const MAX_PAGES = 32
@@ -26,6 +27,19 @@ let cachedUntil = 0
 let cachedPages: CrawledPage[] = []
 let pendingCrawl: { origin: string; promise: Promise<CrawledPage[]> } | null = null
 
+function getTrustedOrigin(): string | null {
+  const configuredUrl =
+    process.env.SITE_URL ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NODE_ENV === 'development' ? `http://localhost:${process.env.PORT ?? '3000'}` : '')
+  if (!configuredUrl) return null
+  try {
+    return new URL(configuredUrl).origin
+  } catch {
+    return null
+  }
+}
+
 function toPublicPageUrl(href: string, origin: string) {
   try {
     const url = new URL(href, origin)
@@ -35,8 +49,13 @@ function toPublicPageUrl(href: string, origin: string) {
     url.search = ''
     url.pathname = url.pathname.replace(/\/+$/, '') || '/'
 
+    const lowerPath = url.pathname.toLowerCase()
+    const secretAdminPath = ADMIN_BASE_PATH.toLowerCase()
+
     if (
       /^\/(?:api|admin|_next|_vercel)(?:\/|$)/i.test(url.pathname) ||
+      lowerPath === secretAdminPath ||
+      lowerPath.startsWith(`${secretAdminPath}/`) ||
       /\.(?:avif|css|gif|ico|jpe?g|js|json|pdf|png|svg|webp|xml|zip)$/i.test(url.pathname)
     ) {
       return null
@@ -166,7 +185,9 @@ function selectRelevantPages(pages: CrawledPage[], query: string) {
 }
 
 export async function getCgsWebsiteKnowledge(origin: string, query: string) {
-  const normalizedOrigin = new URL(origin).origin
+  const trusted = getTrustedOrigin()
+  if (!trusted) return ''
+  const normalizedOrigin = trusted
   let pages: CrawledPage[]
   if (cachedOrigin === normalizedOrigin && cachedUntil > Date.now()) {
     pages = cachedPages

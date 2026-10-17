@@ -3,12 +3,13 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requirePermission } from '@/lib/admin-auth'
-import { adminUrl } from '@/lib/admin-config'
+import { adminUrl, ADMIN_BASE_PATH } from '@/lib/admin-config'
 
 const DELETE_AUDIT_LOGS_PHRASE = 'DELETE ALL AUDIT LOGS'
 
 function returnToActivity(result: { status?: string; error?: string }): never {
   revalidatePath('/admin')
+  revalidatePath(ADMIN_BASE_PATH)
   redirect(adminUrl('', { view: 'activity', ...result }))
 }
 

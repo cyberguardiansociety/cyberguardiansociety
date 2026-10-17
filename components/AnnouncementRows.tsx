@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'motion/react'
 import { Calendar, ArrowUpRight, X, ExternalLink, Tag } from 'lucide-react'
 import type { ManagedContentItem } from '@/lib/site-content'
+import { safeContentUrl } from '@/lib/utils'
 
 function formatDate(dateStr?: string | null) {
   if (!dateStr) return null
@@ -170,17 +171,22 @@ export default function AnnouncementRows({ items }: { items: ManagedContentItem[
                   </p>
                 )}
 
-                {activeItem.action_url && (
-                  <a
-                    href={activeItem.action_url}
-                    target={activeItem.action_url.startsWith('https://') ? '_blank' : undefined}
-                    rel={activeItem.action_url.startsWith('https://') ? 'noopener noreferrer' : undefined}
-                    className="announcement-popup__cta"
-                  >
-                    <ExternalLink size={14} />
-                    View details
-                  </a>
-                )}
+                {(() => {
+                  const safeAction = safeContentUrl(activeItem.action_url)
+                  if (!safeAction) return null
+                  const isExternal = safeAction.startsWith('https://')
+                  return (
+                    <a
+                      href={safeAction}
+                      target={isExternal ? '_blank' : undefined}
+                      rel={isExternal ? 'noopener noreferrer' : undefined}
+                      className="announcement-popup__cta"
+                    >
+                      <ExternalLink size={14} />
+                      View details
+                    </a>
+                  )
+                })()}
               </div>
             </motion.article>
           </motion.div>

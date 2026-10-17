@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireAdmin } from '@/lib/admin-auth'
-import { adminUrl } from '@/lib/admin-config'
+import { adminUrl, ADMIN_BASE_PATH } from '@/lib/admin-config'
 import { savePortalSetting, saveMaintenanceMessage as persistMaintenanceMessage, resetPortalSettings, type PortalSettingKey } from '@/lib/portal-settings'
 import { clearAllAccountLockouts } from '@/lib/security/lockout'
 import { deleteAllDraftManagedContent } from '@/lib/managed-content-store'
@@ -28,6 +28,7 @@ async function requireSuperAdmin() {
 
 function returnToSettings(tab: string, result: { status?: string; error?: string }): never {
   revalidatePath('/admin')
+  revalidatePath(ADMIN_BASE_PATH)
   revalidatePath('/join-cgs')
   revalidatePath('/join-as-speaker')
   revalidatePath('/products')

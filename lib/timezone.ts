@@ -23,15 +23,28 @@ export function utcToZonedLocalInput(value: string | Date | null | undefined, ti
 
 export function parseZonedLocalInput(value: string | null | undefined, timeZone: string): Date | null {
   if (!value || typeof value !== 'string') return null
-  const [datePart, timePart] = value.trim().replace(' ', 'T').split('T')
+  const trimmed = value.trim().replace(' ', 'T')
+  const [datePart, timePart] = trimmed.split('T')
   if (!datePart || !timePart) return null
 
   const [year, month, day] = datePart.split('-').map(Number)
-  const [hour, minute] = timePart.split(':').map(Number)
-  if (![year, month, day, hour, minute].every(Number.isFinite)) return null
-  if (month < 1 || month > 12 || day < 1 || day > 31 || hour < 0 || hour > 23 || minute < 0 || minute > 59) return null
+  const timeTokens = timePart.split(':').map(Number)
+  const hour = timeTokens[0]
+  const minute = timeTokens[1]
+  const second = Number.isFinite(timeTokens[2]) ? Math.floor(timeTokens[2]) : 0
 
-  const wallClockUtc = Date.UTC(year, month - 1, day, hour, minute)
+  if (![year, month, day, hour, minute, second].every(Number.isFinite)) return null
+  if (
+    month < 1 || month > 12 ||
+    day < 1 || day > 31 ||
+    hour < 0 || hour > 23 ||
+    minute < 0 || minute > 59 ||
+    second < 0 || second > 59
+  ) {
+    return null
+  }
+
+  const wallClockUtc = Date.UTC(year, month - 1, day, hour, minute, second)
   try {
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone,
@@ -61,7 +74,8 @@ export function parseZonedLocalInput(value: string | null | undefined, timeZone:
     }
 
     const result = new Date(candidate)
-    return utcToZonedLocalInput(result, timeZone) === value ? result : null
+    const normalizedExpected = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+    return utcToZonedLocalInput(result, timeZone) === normalizedExpected ? result : null
   } catch {
     return null
   }

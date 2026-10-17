@@ -18,6 +18,16 @@ export const PORTAL_SETTING_DEFAULTS = {
   maintenance_mode: false,
 } as const
 
+export const PORTAL_SETTING_FAIL_CLOSED = {
+  portal_open: false,
+  attendance_open: false,
+  join_cgs_coming_soon: true,
+  speaker_coming_soon: true,
+  products_coming_soon: true,
+  resources_coming_soon: true,
+  maintenance_mode: false,
+} as const
+
 export type PortalSettingKey = keyof typeof PORTAL_SETTING_DEFAULTS
 export type PortalSettings = Record<PortalSettingKey, boolean>
 export type MaintenanceSettings = { enabled: boolean; message: string }
@@ -28,29 +38,33 @@ function parseSetting(value: unknown, fallback: boolean): boolean {
   return fallback
 }
 
-async function getStoredPortalSettings(): Promise<Map<string, unknown>> {
+async function getStoredPortalSettings(): Promise<{ stored: Map<string, unknown>; ok: boolean }> {
   try {
     const supabase = createSupabaseServiceClient()
     const { data, error } = await supabase.from('cgs_portal_settings').select('key, value')
     if (error) {
       console.warn('[portal-settings] Failed to load portal settings from database:', error.message)
-      return new Map<string, unknown>()
+      return { stored: new Map<string, unknown>(), ok: false }
     }
 
     const stored = new Map<string, unknown>()
     for (const row of (Array.isArray(data) ? data : [])) {
       if (typeof row.key === 'string') stored.set(row.key, row.value)
     }
-    return stored
+    return { stored, ok: true }
   } catch (err) {
     console.warn('[portal-settings] Exception reading settings:', err)
-    return new Map<string, unknown>()
+    return { stored: new Map<string, unknown>(), ok: false }
   }
 }
 
 export async function getPortalSettings(): Promise<PortalSettings> {
   try {
-    const stored = await getStoredPortalSettings()
+    const { stored, ok } = await getStoredPortalSettings()
+    if (!ok && isSupabaseRuntimeConfigured()) {
+      // Fail closed when database is unreachable in hosted mode
+      return { ...PORTAL_SETTING_FAIL_CLOSED }
+    }
     const settings = Object.fromEntries(
       Object.entries(PORTAL_SETTING_DEFAULTS).map(([key, fallback]) => [
         key,
@@ -61,7 +75,7 @@ export async function getPortalSettings(): Promise<PortalSettings> {
     if (maintenanceSnapshot) settings.maintenance_mode = maintenanceSnapshot.enabled
     return settings
   } catch {
-    return { ...PORTAL_SETTING_DEFAULTS }
+    return { ...PORTAL_SETTING_FAIL_CLOSED }
   }
 }
 
@@ -70,7 +84,7 @@ export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {
   const snapshot = hostedDatabase ? null : readMaintenanceSnapshot()
   if (snapshot) return snapshot
 
-  const stored = await getStoredPortalSettings()
+  const { stored, ok } = await getStoredPortalSettings()
   const message = stored.get('maintenance_message')
   const settings = {
     enabled: parseSetting(stored.get('maintenance_mode'), PORTAL_SETTING_DEFAULTS.maintenance_mode),
@@ -107,6 +121,11 @@ export async function savePortalSetting(key: PortalSettingKey, value: boolean): 
 }
 
 export async function saveMaintenanceMessage(value: string): Promise<void> {
+  const trimmed = typeof value === 'string' ? value.trim() : ''
+  if (trimmed.length < 10 || trimmed.length > 500) {
+    throw new Error('Maintenance message must be between 10 and 500 characters.')
+  }
+
   const supabase = createSupabaseServiceClient()
   const { data: existing, error: readError } = await supabase
     .from('cgs_portal_settings')
@@ -120,14 +139,14 @@ export async function saveMaintenanceMessage(value: string): Promise<void> {
     {
       id: existing?.id ?? 'setting-maintenance_message',
       key: 'maintenance_message',
-      value,
+      value: trimmed,
       created_at: existing?.created_at ?? now,
       updated_at: now,
     },
     { onConflict: 'key' },
   )
   if (error) throw new Error('Maintenance message could not be saved.')
-  if (!isSupabaseRuntimeConfigured()) writeMaintenanceSnapshot({ message: value })
+  if (!isSupabaseRuntimeConfigured()) writeMaintenanceSnapshot({ message: trimmed })
 }
 
 export async function resetPortalSettings(): Promise<void> {

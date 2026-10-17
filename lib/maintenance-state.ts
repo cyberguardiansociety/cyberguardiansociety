@@ -41,15 +41,19 @@ export function writeMaintenanceSnapshot(patch: Partial<MaintenanceSnapshot>): M
     throw new Error('Maintenance notice must be between 10 and 500 characters.')
   }
 
-  const filePath = snapshotPath()
-  fs.mkdirSync(path.dirname(filePath), { recursive: true })
-  const temporaryPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`
-  fs.writeFileSync(temporaryPath, JSON.stringify(next), 'utf8')
   try {
-    fs.renameSync(temporaryPath, filePath)
-  } catch {
-    fs.rmSync(filePath, { force: true })
-    fs.renameSync(temporaryPath, filePath)
+    const filePath = snapshotPath()
+    fs.mkdirSync(path.dirname(filePath), { recursive: true })
+    const temporaryPath = `${filePath}.${process.pid}.${randomUUID()}.tmp`
+    fs.writeFileSync(temporaryPath, JSON.stringify(next), 'utf8')
+    try {
+      fs.renameSync(temporaryPath, filePath)
+    } catch {
+      fs.copyFileSync(temporaryPath, filePath)
+      try { fs.unlinkSync(temporaryPath) } catch {}
+    }
+  } catch (err) {
+    console.warn('[maintenance-state] Could not write local snapshot to disk:', err)
   }
   return next
 }

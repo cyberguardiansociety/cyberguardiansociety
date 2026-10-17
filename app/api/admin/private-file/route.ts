@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createHmac, timingSafeEqual } from 'crypto'
 import path from 'path'
-import { SESSION_SECRET } from '@/lib/admin-config'
+import { getDerivedFileSigningSecret } from '@/lib/admin-config'
 import { readPrivateObject } from '@/lib/supabase-storage'
 
 export const runtime = 'nodejs'
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('Not found', { status: 404 })
   }
 
-  const expected = createHmac('sha256', SESSION_SECRET)
+  const expected = createHmac('sha256', getDerivedFileSigningSecret())
     .update(`${relPath}|${expires}`)
     .digest('hex')
   const received = Buffer.from(signature, 'utf-8')

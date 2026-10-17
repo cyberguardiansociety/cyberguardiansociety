@@ -57,23 +57,40 @@ export const ADMIN_IP_ALLOWLIST: string[] = (process.env.ADMIN_IP_ALLOWLIST ?? '
   .map((ip) => ip.trim())
   .filter(Boolean)
 
+import crypto from 'crypto'
+
+const isExplicitLocalDev =
+  process.env.ALLOW_INSECURE_DEV_SECRETS === '1' ||
+  (process.env.NODE_ENV === 'development' && !process.env.VERCEL && !process.env.NETLIFY && !process.env.CI)
+
 const configuredSessionSecret = process.env.SESSION_SECRET?.trim()
 const configuredTotpEncryptionKey = process.env.TOTP_ENCRYPTION_KEY?.trim()
 
-if (process.env.NODE_ENV === 'production') {
+if (!isExplicitLocalDev) {
   if (!configuredSessionSecret || configuredSessionSecret.length < 32) {
-    throw new Error('SESSION_SECRET must be configured with at least 32 characters in production.')
+    throw new Error(
+      'FATAL SECURITY ERROR: SESSION_SECRET must be configured with at least 32 characters in all staging, preview, and production environments.',
+    )
   }
 }
 
 export const SESSION_SECRET =
-  configuredSessionSecret || 'cgs_default_session_secret_change_in_production_min_32_bytes!'
+  configuredSessionSecret || 'cgs_local_dev_only_session_secret_32_bytes_min_entropy_key!'
 
-// TOTP is no longer part of the admin sign-in path. Keep the legacy helper
-// key available only for its explicit maintenance/test module, so normal admin
-// login startup does not depend on an MFA-only secret.
 export const TOTP_ENCRYPTION_KEY =
-  configuredTotpEncryptionKey || 'cgs_default_totp_encryption_key_32_bytes_len_min!'
+  configuredTotpEncryptionKey ||
+  crypto.createHmac('sha256', SESSION_SECRET).update('cgs-totp-encryption-fallback-key').digest('hex')
+
+/**
+ * Derives cryptographically separate keys from SESSION_SECRET to prevent cross-context token reuse.
+ */
+export function getDerivedSessionSecret(): Buffer {
+  return crypto.createHmac('sha256', SESSION_SECRET).update('cgs-session-token-v1-context').digest()
+}
+
+export function getDerivedFileSigningSecret(): Buffer {
+  return crypto.createHmac('sha256', SESSION_SECRET).update('cgs-private-file-url-v1-context').digest()
+}
 
 /**
  * Universal helper for constructing URLs under the secret ADMIN_BASE_PATH.

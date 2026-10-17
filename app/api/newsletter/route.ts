@@ -3,7 +3,7 @@ import { hasSameOrigin, readJsonBody } from '@/lib/api-security'
 import { NewsletterSchema } from '@/lib/schemas/public-forms'
 import { checkRateLimit, RATE_LIMIT_POLICIES } from '@/lib/security/public-rate-limiter'
 import { logPublicFormEvent } from '@/lib/security/public-form-audit'
-import { hasSubscriber, persistSubscription } from '@/lib/newsletter-store'
+import { persistSubscription } from '@/lib/newsletter-store'
 
 export const runtime = 'nodejs'
 
@@ -78,22 +78,7 @@ export async function POST(request: Request) {
 
   const { email, source } = parseResult.data
 
-  // 5. Idempotency — already subscribed is a success, not an error.
-  if (await hasSubscriber(email)) {
-    await logPublicFormEvent({
-      action: 'newsletter_subscription_success',
-      request,
-      email,
-      details: { source, alreadySubscribed: true },
-    })
-
-    return NextResponse.json({
-      success: true,
-      message: "You're already on the list. Thanks for the enthusiasm!",
-    })
-  }
-
-  // 6. Persist the subscription (real write — no fake success).
+  // 5. Persist subscription with uniform response to prevent enumeration
   let record
   try {
     record = await persistSubscription(email, source)
@@ -104,19 +89,12 @@ export async function POST(request: Request) {
       { status: 503 },
     )
   }
-  if (!record) {
-    // Lost a race with a concurrent duplicate — treat as success.
-    return NextResponse.json({
-      success: true,
-      message: "You're already on the list. Thanks for the enthusiasm!",
-    })
-  }
 
   await logPublicFormEvent({
     action: 'newsletter_subscription_success',
     request,
     email,
-    details: { source, alreadySubscribed: false },
+    details: { source, alreadySubscribed: !record },
   })
 
   return NextResponse.json({

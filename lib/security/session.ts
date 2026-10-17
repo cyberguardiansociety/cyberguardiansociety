@@ -1,14 +1,14 @@
 import 'server-only'
 import crypto from 'crypto'
 import { cookies } from 'next/headers'
-import { SESSION_SECRET, ADMIN_BASE_PATH } from '@/lib/admin-config'
+import { getDerivedSessionSecret, ADMIN_BASE_PATH } from '@/lib/admin-config'
 import { signAdminSessionPayload, verifyAdminSessionToken, type AdminSessionPayload } from '@/lib/security/session-token'
 
 const ADMIN_SESSION_COOKIE = '__cgs_admin_session'
 const CSRF_COOKIE = '__cgs_csrf'
 
 function getSigningKey(): Buffer {
-  return crypto.createHash('sha256').update(SESSION_SECRET).digest()
+  return getDerivedSessionSecret()
 }
 
 /**

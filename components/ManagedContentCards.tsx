@@ -1,15 +1,18 @@
 import Link from 'next/link'
 import type { ManagedContentItem } from '@/lib/site-content'
+import { safeContentUrl } from '@/lib/utils'
 
 export default function ManagedContentCards({ items }: { items: ManagedContentItem[] }) {
   return (
     <ul className="managed-content-grid">
       {items.map((item) => {
-        const external = Boolean(item.action_url?.startsWith('https://'))
+        const safeAction = safeContentUrl(item.action_url)
+        const safeImage = safeContentUrl(item.image_url)
+        const external = Boolean(safeAction?.startsWith('https://'))
         return (
           <li className="managed-content-card" key={item.id}>
-            {item.image_url ? (
-              <img className="managed-content-card__image grayscale-0" src={item.image_url} alt="" loading="lazy" />
+            {safeImage ? (
+              <img className="managed-content-card__image grayscale-0" src={safeImage} alt="" loading="lazy" />
             ) : (
               <div className="managed-content-card__image managed-content-card__image--empty" aria-hidden="true">
                 {item.category || 'CGS'}
@@ -20,11 +23,11 @@ export default function ManagedContentCards({ items }: { items: ManagedContentIt
               <h3>{item.title}</h3>
               <p>{item.summary}</p>
               {item.price !== null ? <strong className="managed-content-card__price">{item.currency} {item.price.toFixed(2)}</strong> : null}
-              {item.action_url ? (
+              {safeAction ? (
                 external ? (
-                  <a href={item.action_url} target="_blank" rel="noopener noreferrer" className="managed-content-card__link">View details</a>
+                  <a href={safeAction} target="_blank" rel="noopener noreferrer" className="managed-content-card__link">View details</a>
                 ) : (
-                  <Link href={item.action_url} className="managed-content-card__link">View details</Link>
+                  <Link href={safeAction} className="managed-content-card__link">View details</Link>
                 )
               ) : null}
             </div>

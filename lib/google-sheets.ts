@@ -100,7 +100,18 @@ function createGoogleAuth(): GoogleJwtAuth | null {
 function normalizeEmail(value: unknown): string | null {
   if (typeof value !== 'string') return null
   const email = value.trim().toLowerCase()
+  if (email.length > 254) return null
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null
+}
+
+function sanitizeSpreadsheetCell(value: unknown): string | null {
+  if (value == null) return null
+  const str = String(value).trim()
+  if (!str) return null
+  if (/^[=+\-@\t\r]/.test(str)) {
+    return `'${str}`
+  }
+  return str
 }
 
 function boundedCell(row: unknown[], index: number, maxLength: number): string {
@@ -172,32 +183,26 @@ function parseCsv(csvText: string): string[][] {
 
 /**
  * Fallback to fetch public Google Sheets if the spreadsheet is shared as
- * "Anyone with the link can view". This allows syncing without a GCP service account private key.
+ * "Anyone with the link can view". Uses exact sheet name (never gid=0).
  */
 async function fetchPublicSheetCsv(spreadsheetId: string, sheetName: string): Promise<string[][] | null> {
-  const urls = [
-    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`,
-    `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=csv&gid=0`,
-  ]
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'CyberGuardianSociety/1.0' },
-        cache: 'no-store',
-      })
-      if (!res.ok) continue
-      const contentType = res.headers.get('content-type') || ''
-      const text = await res.text()
-      // If the sheet is private, Google returns an HTML sign-in page with 401 or 200 containing <html
-      if (contentType.includes('text/html') || text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-        continue
-      }
-      const parsed = parseCsv(text)
-      if (parsed.length >= 2) return parsed
-    } catch (err) {
-      console.warn(`[Google Sheets Sync] Public CSV fetch attempt failed for ${url}:`, err)
+  const url = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'CyberGuardianSociety/1.0' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(15000),
+    })
+    if (!res.ok) return null
+    const contentType = res.headers.get('content-type') || ''
+    const text = await res.text()
+    if (contentType.includes('text/html') || text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+      return null
     }
+    const parsed = parseCsv(text)
+    if (parsed.length >= 2) return parsed
+  } catch (err) {
+    console.warn(`[Google Sheets Sync] Public CSV fetch attempt failed for ${url}:`, err)
   }
   return null
 }
@@ -210,6 +215,8 @@ export type SyncSummary = {
   duplicates: number
   invalid: number
 }
+
+const MAX_SYNC_ROWS = 5000
 
 export async function syncGoogleConnection(
   supabase: PortalSupabaseClient,
@@ -230,7 +237,11 @@ export async function syncGoogleConnection(
     throw new Error('This Google Sheets connection is paused. Resume it to sync.')
   }
 
-  // 2. Fetch linked or active sessions
+  if (!/^[A-Za-z0-9_-]+$/.test(connection.spreadsheet_id)) {
+    throw new Error('Invalid Google Spreadsheet ID. It must contain only letters, numbers, hyphens, and underscores.')
+  }
+
+  // 2. Fetch linked sessions only (do NOT register to all sessions if unlinked)
   const { data: linkedSessions, error: sessionError } = await supabase
     .from('online_sessions')
     .select('id')
@@ -240,17 +251,11 @@ export async function syncGoogleConnection(
     throw new Error('Could not load sessions linked to this sheet.')
   }
 
-  let sessionIds = (linkedSessions ?? []).map((session) => session.id as string)
+  const sessionIds = (linkedSessions ?? []).map((session) => session.id as string)
   if (!sessionIds.length) {
-    const { data: activeSessions, error } = await supabase
-      .from('online_sessions')
-      .select('id')
-      .eq('is_active', true)
-    if (error) throw new Error('Could not load active sessions for registration sync.')
-    sessionIds = (activeSessions ?? []).map((session) => session.id as string)
-  }
-  if (!sessionIds.length) {
-    throw new Error('Create or activate an online session before syncing registrants.')
+    throw new Error(
+      'No online session is currently linked to this Google Sheet connection. Please link a session in Session Management before syncing.',
+    )
   }
 
   // 3. Create sync run record immediately so audit history always records this run
@@ -356,33 +361,42 @@ export async function syncGoogleConnection(
     }
     if (nameIndex < 0) {
       nameIndex = header.findIndex(
-        (value) => /name/i.test(value) && !/email|user|file|sheet|status|type/i.test(value)
+        (value) =>
+          /name/i.test(value) &&
+          !/email|user|file|sheet|status|type|company|father|college|organization|organisation|school|university|institute|dept|department/i.test(
+            value,
+          ),
       )
     }
     const firstNameIndex = header.findIndex((value) => /first\s*name/i.test(value))
     const lastNameIndex = header.findIndex((value) => /last\s*name|surname/i.test(value))
 
-    // Guard phone matching against serial number / roll number / ticket number
+    // Guard phone matching against serial number / roll number / ticket number / email
     const phoneIndex = header.findIndex(
       (value) =>
         /(whatsapp|phone|contact|mobile|cell)/i.test(value) &&
-        !/serial|roll|reg|ticket|token/i.test(value)
+        !/serial|roll|reg|ticket|token|email|mail/i.test(value),
     )
-    const organizationIndex = header.findIndex((value) =>
-      /(organization|organisation|university|institute|college|company|affiliation|school|dept|department)/i.test(
-        value
-      )
+    const organizationIndex = header.findIndex(
+      (value) =>
+        /(organization|organisation|university|institute|college|company|affiliation|school|dept|department)/i.test(
+          value,
+        ) && !/email|mail/i.test(value),
     )
-    const locationIndex = header.findIndex((value) => /(city|country|location|address)/i.test(value))
+    // Guard location matching against email address
+    const locationIndex = header.findIndex(
+      (value) => /(city|country|location|address)/i.test(value) && !/email|mail|ip/i.test(value),
+    )
     const experienceIndex = header.findIndex((value) => /(experience|level|skill|background)/i.test(value))
 
     if (emailIndex < 0) {
       throw new Error(
-        'No "Email" column was found in the sheet header row. Check that your Google Form responses include an Email column.'
+        'No "Email" column was found in the sheet header row. Check that your Google Form responses include an Email column.',
       )
     }
 
-    summary.rowsRead = rows.length - 1
+    const dataRows = rows.slice(1, MAX_SYNC_ROWS + 1)
+    summary.rowsRead = dataRows.length
     const uniqueRows = new Map<
       string,
       {
@@ -395,7 +409,7 @@ export async function syncGoogleConnection(
       }
     >()
 
-    for (const rowValue of rows.slice(1)) {
+    for (const rowValue of dataRows) {
       const row = Array.isArray(rowValue) ? rowValue : []
       const email = normalizeEmail(row[emailIndex])
       if (!email) {
@@ -446,21 +460,27 @@ export async function syncGoogleConnection(
     const registrarRows = registrants.map((row) => {
       const old = existingByEmail.get(row.email)
       if (!old) summary.registrantsCreated += 1
-      // Derive a fallback name from the email local-part so the NOT NULL
-      // constraint on cgs_registrants.name is never violated.
+
+      // Item 13: Anyone submitting with someone else's email cannot overwrite their existing data
+      const oldName = typeof old?.name === 'string' ? old.name.trim() : ''
+      const oldWhatsapp = typeof old?.whatsapp === 'string' ? old.whatsapp.trim() : ''
+      const oldOrg = typeof old?.organization === 'string' ? old.organization.trim() : ''
+      const oldLocation = typeof old?.country_city === 'string' ? old.country_city.trim() : ''
+      const oldExperience = typeof old?.experience_level === 'string' ? old.experience_level.trim() : ''
+
       const derivedName =
+        oldName ||
         row.name?.trim() ||
-        (old?.name as string)?.trim() ||
         row.email.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
       return {
         id: (old?.id as string) || crypto.randomUUID(),
         email: row.email,
-        name: derivedName || 'Participant',
-        whatsapp: row.whatsapp?.trim() || (old?.whatsapp as string)?.trim() || null,
-        organization: row.organization?.trim() || (old?.organization as string)?.trim() || null,
-        country_city: row.countryCity?.trim() || (old?.country_city as string)?.trim() || null,
-        experience_level: row.experienceLevel?.trim() || (old?.experience_level as string)?.trim() || null,
+        name: sanitizeSpreadsheetCell(derivedName || 'Participant')!,
+        whatsapp: sanitizeSpreadsheetCell(oldWhatsapp || row.whatsapp?.trim() || null),
+        organization: sanitizeSpreadsheetCell(oldOrg || row.organization?.trim() || null),
+        country_city: sanitizeSpreadsheetCell(oldLocation || row.countryCity?.trim() || null),
+        experience_level: sanitizeSpreadsheetCell(oldExperience || row.experienceLevel?.trim() || null),
         updated_at: new Date().toISOString(),
       }
     })
@@ -500,7 +520,7 @@ export async function syncGoogleConnection(
     }
 
     const newRegistrations = registrationPairs.filter(
-      (item) => !existingPairs.has(`${item.registrant_id}:${item.session_id}`)
+      (item) => !existingPairs.has(`${item.registrant_id}:${item.session_id}`),
     )
     summary.registrationsCreated = newRegistrations.length
     summary.registrationsExisting = registrationPairs.length - newRegistrations.length
@@ -508,12 +528,13 @@ export async function syncGoogleConnection(
     for (let offset = 0; offset < newRegistrations.length; offset += 500) {
       const { error } = await supabase
         .from('cgs_session_registrations')
-        .insert(
+        .upsert(
           newRegistrations.slice(offset, offset + 500).map((item) => ({
             id: crypto.randomUUID(),
             ...item,
             source: 'google-sheets',
-          }))
+          })),
+          { onConflict: 'registrant_id,session_id', ignoreDuplicates: true },
         )
       if (error) throw new Error('Could not save session registrations from the sheet.')
     }

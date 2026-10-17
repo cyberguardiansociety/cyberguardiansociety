@@ -24,7 +24,7 @@ export default async function AdminSessionOperations({
   const { supabase } = await requirePermission('sessions')
 
   const { getAllManagedSessions } = await import('@/lib/sessions-store')
-  const sessions = (await getAllManagedSessions(supabase)) as unknown as PortalSession[]
+  const sessions = (await getAllManagedSessions(supabase, true)) as unknown as PortalSession[]
 
   // ── 1. Online Sessions Management ─────────────────────────────────────────
   if (view === 'sessions') {

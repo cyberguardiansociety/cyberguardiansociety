@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { hasAdminPermission, requireAdmin, requirePermission } from '@/lib/admin-auth'
 import { parseZonedLocalInput } from '@/lib/timezone'
 import { syncGoogleConnection } from '@/lib/google-sheets'
-import { adminUrl } from '@/lib/admin-config'
+import { adminUrl, ADMIN_BASE_PATH } from '@/lib/admin-config'
 
 const SESSION_STATUSES = ['DRAFT', 'UPCOMING', 'LIVE', 'COMPLETED', 'CANCELLED', 'ARCHIVED'] as const
 const SESSION_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -32,7 +32,10 @@ function refreshPortal(revalidateHome = false) {
   if (revalidateHome) {
     try { revalidatePath('/') } catch {}
   }
-  try { revalidatePath('/admin') } catch {}
+  try {
+    revalidatePath('/admin')
+    revalidatePath(ADMIN_BASE_PATH)
+  } catch {}
 }
 
 function fail(view: string, code: string, message?: string): never {
@@ -230,7 +233,7 @@ export async function updateManagedTiming(formData: FormData) {
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id) || !startsAt || !endsAt || endsAt <= startsAt) fail('time-management', 'invalid-time')
 
   const { getAllManagedSessions, saveManagedSession } = await import('@/lib/sessions-store')
-  const allSessions = await getAllManagedSessions(supabase)
+  const allSessions = await getAllManagedSessions(supabase, true)
   const existing = allSessions.find((s) => s.id === id)
   if (!existing) fail('time-management', 'not-found')
 
@@ -303,7 +306,7 @@ export async function quickStartManagedSession(formData: FormData) {
   const endsAt = new Date(now.getTime() + duration * 60_000)
 
   const { getAllManagedSessions, saveManagedSession } = await import('@/lib/sessions-store')
-  const allSessions = await getAllManagedSessions(supabase)
+  const allSessions = await getAllManagedSessions(supabase, true)
   const existing = allSessions.find((s) => s.id === id)
   if (!existing) fail('time-management', 'not-found')
 
@@ -346,7 +349,7 @@ export async function extendManagedSession(formData: FormData) {
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id) || !Number.isInteger(minutes) || minutes < 1 || minutes > 480) fail('time-management', 'invalid-duration')
 
   const { getAllManagedSessions, saveManagedSession } = await import('@/lib/sessions-store')
-  const allSessions = await getAllManagedSessions(supabase)
+  const allSessions = await getAllManagedSessions(supabase, true)
   const session = allSessions.find((s) => s.id === id)
   if (!session) fail('time-management', 'not-found')
 

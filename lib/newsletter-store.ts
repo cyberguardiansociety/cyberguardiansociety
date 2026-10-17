@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { randomUUID } from 'crypto'
 import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
@@ -9,11 +10,6 @@ import { createSupabaseServiceClient } from '@/lib/supabase/service'
  * Subscriptions are persisted to a local JSON file so the "Stay in the loop"
  * band performs a real write rather than faking success. This mirrors the
  * local-store pattern used by `managed-content-store.ts`.
- *
- * TODO(production): swap `persistSubscription` for a call to the real email
- * service provider (Mailchimp / Buttondown / Resend audiences, etc.) so
- * subscribers land in the marketing list. The API route is the single place
- * to change — the client already talks to `/api/newsletter`.
  */
 
 const DATA_DIR = path.join(process.cwd(), 'data')
@@ -25,15 +21,22 @@ export type NewsletterSubscriber = {
   subscribedAt: string
 }
 
+function sanitizeSource(rawSource: unknown): string {
+  if (typeof rawSource !== 'string') return 'team-page'
+  const cleaned = rawSource.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 50)
+  return cleaned || 'team-page'
+}
+
 function readSubscribers(): NewsletterSubscriber[] {
   try {
     if (!fs.existsSync(SUBSCRIBERS_FILE)) return []
     const raw = fs.readFileSync(SUBSCRIBERS_FILE, 'utf-8')
+    if (!raw.trim()) return []
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? (parsed as NewsletterSubscriber[]) : []
   } catch (err) {
-    console.warn('[newsletter-store] Failed to read subscribers:', err)
-    return []
+    console.error('[newsletter-store] Failed to read subscribers from disk:', err)
+    throw new Error('Local subscriber storage is corrupted or unreadable.')
   }
 }
 
@@ -42,9 +45,17 @@ function writeSubscribers(list: NewsletterSubscriber[]): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true })
     }
-    fs.writeFileSync(SUBSCRIBERS_FILE, JSON.stringify(list, null, 2), 'utf-8')
+    const tempFile = `${SUBSCRIBERS_FILE}.${process.pid}.${randomUUID()}.tmp`
+    fs.writeFileSync(tempFile, JSON.stringify(list, null, 2), 'utf-8')
+    try {
+      fs.renameSync(tempFile, SUBSCRIBERS_FILE)
+    } catch {
+      fs.copyFileSync(tempFile, SUBSCRIBERS_FILE)
+      try { fs.unlinkSync(tempFile) } catch {}
+    }
   } catch (err) {
     console.error('[newsletter-store] Failed to write subscribers:', err)
+    throw new Error('Newsletter subscribers could not be saved to storage.')
   }
 }
 
@@ -66,10 +77,12 @@ export async function hasSubscriber(email: string): Promise<boolean> {
  */
 export async function persistSubscription(email: string, source: string): Promise<NewsletterSubscriber | null> {
   const normalized = email.trim().toLowerCase()
+  const safeSource = sanitizeSource(source)
+
   if (isSupabaseRuntimeConfigured()) {
     const record = {
       email: normalized,
-      source: source || 'team-page',
+      source: safeSource,
       subscribed_at: new Date().toISOString(),
     }
     const { error } = await createSupabaseServiceClient().from('newsletter_subscribers').insert(record)
@@ -86,7 +99,7 @@ export async function persistSubscription(email: string, source: string): Promis
 
   const record: NewsletterSubscriber = {
     email: normalized,
-    source: source || 'team-page',
+    source: safeSource,
     subscribedAt: new Date().toISOString(),
   }
   list.push(record)

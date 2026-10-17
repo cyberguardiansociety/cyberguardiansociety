@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { SESSION_SECRET } from '@/lib/admin-config'
+import { getDerivedSessionSecret } from '@/lib/admin-config'
 
 export interface AdminSessionPayload {
   userId: string
@@ -11,7 +11,7 @@ export interface AdminSessionPayload {
 }
 
 function getSigningKey(): Buffer {
-  return crypto.createHash('sha256').update(SESSION_SECRET).digest()
+  return getDerivedSessionSecret()
 }
 
 export function signAdminSessionPayload(payload: AdminSessionPayload): string {

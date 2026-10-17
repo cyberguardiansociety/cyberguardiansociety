@@ -6,7 +6,7 @@ import { createSupabaseServiceClient } from '@/lib/supabase/service'
 import { requirePermission, invalidateAdminCache } from '@/lib/admin-auth'
 import { uploadPublicContentImage } from '@/lib/supabase-storage'
 import { hashPassword } from '@/lib/security/password'
-import { adminUrl } from '@/lib/admin-config'
+import { adminUrl, ADMIN_BASE_PATH } from '@/lib/admin-config'
 
 const contentTypes = ['announcement', 'product', 'merchandise', 'resource'] as const
 const contentPermissions = {
@@ -48,7 +48,9 @@ function finish(view: string, status: string): never {
   revalidatePath('/products')
   revalidatePath('/merch')
   revalidatePath('/announcements')
+  revalidatePath('/resources')
   revalidatePath('/admin')
+  revalidatePath(ADMIN_BASE_PATH)
   redirect(adminUrl('', { view, status }))
 }
 

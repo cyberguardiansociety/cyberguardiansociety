@@ -1,4 +1,4 @@
-'server-only'
+import 'server-only'
 
 type BodyError = { ok: false; status: number; error: string }
 type BodySuccess = { ok: true; bytes: ArrayBuffer }
@@ -11,7 +11,11 @@ export function hasSameOrigin(request: Request) {
   if (!originHeader) return false
 
   try {
-    const configuredOrigin = process.env.SITE_URL ?? process.env.NEXT_PUBLIC_SITE_URL
+    const configuredOrigin =
+      process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+      process.env.SITE_URL?.trim() ||
+      (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined)
+
     if (process.env.NODE_ENV === 'production' && !configuredOrigin) return false
     const expectedOrigin = configuredOrigin ? new URL(configuredOrigin).origin : new URL(request.url).origin
     return new URL(originHeader).origin === expectedOrigin

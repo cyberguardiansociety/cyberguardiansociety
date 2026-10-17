@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 export default async function AttendancePage() {
   const supabase = await createSupabaseServerClient()
   const { getAllManagedSessions } = await import('@/lib/sessions-store')
-  const allSessions = await getAllManagedSessions(supabase)
+  const allSessions = await getAllManagedSessions(supabase, false)
   const session = allSessions.find((s) => s.is_published && s.is_active && s.attendance_open)
   const scheduledTime = session?.starts_at
     ? new Intl.DateTimeFormat('en', {

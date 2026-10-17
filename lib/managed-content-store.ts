@@ -1,24 +1,44 @@
 import fs from 'fs'
 import path from 'path'
+import { randomUUID } from 'crypto'
 import { revalidatePath } from 'next/cache'
+import { ADMIN_BASE_PATH } from '@/lib/admin-config'
 import type { ManagedContentType, ManagedContentItem } from '@/lib/site-content'
 import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 
 const DATA_DIR = path.join(process.cwd(), 'data')
 const CONTENT_FILE = path.join(DATA_DIR, 'managed-content.json')
 
-function readLocalContent(): ManagedContentItem[] {
+export function validateContentUrl(url: unknown): string | null {
+  if (typeof url !== 'string' || !url.trim()) return null
+  const trimmed = url.trim()
+  if (trimmed.startsWith('/') && !trimmed.startsWith('//') && !trimmed.includes('\0')) {
+    return trimmed
+  }
   try {
-    if (!fs.existsSync(CONTENT_FILE)) {
-      // Seed with initial content if none exists
-      return getDefaultContent()
+    const parsed = new URL(trimmed)
+    if (['https:', 'http:', 'mailto:'].includes(parsed.protocol)) {
+      return parsed.href
     }
-    const raw = fs.readFileSync(CONTENT_FILE, 'utf-8')
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as ManagedContentItem[]) : getDefaultContent()
-  } catch (err) {
-    console.warn('[managed-content-store] Failed to read local content:', err)
+    return null
+  } catch {
+    return null
+  }
+}
+
+function readLocalContent(): ManagedContentItem[] {
+  if (!fs.existsSync(CONTENT_FILE)) {
     return getDefaultContent()
+  }
+  const raw = fs.readFileSync(CONTENT_FILE, 'utf-8')
+  if (!raw.trim()) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) throw new Error('Local content payload is not an array.')
+    return parsed as ManagedContentItem[]
+  } catch (err) {
+    console.error('[managed-content-store] Corrupt managed content file:', err)
+    throw new Error(`Managed content storage file is corrupted: ${(err as Error).message}`)
   }
 }
 
@@ -27,7 +47,14 @@ function writeLocalContent(items: ManagedContentItem[]): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true })
     }
-    fs.writeFileSync(CONTENT_FILE, JSON.stringify(items, null, 2), 'utf-8')
+    const tempFile = `${CONTENT_FILE}.${process.pid}.${randomUUID()}.tmp`
+    fs.writeFileSync(tempFile, JSON.stringify(items, null, 2), 'utf-8')
+    try {
+      fs.renameSync(tempFile, CONTENT_FILE)
+    } catch {
+      fs.copyFileSync(tempFile, CONTENT_FILE)
+      try { fs.unlinkSync(tempFile) } catch {}
+    }
   } catch (err) {
     console.error('[managed-content-store] Failed to write local content:', err)
     throw new Error('Managed content could not be saved to local storage.')
@@ -138,9 +165,43 @@ export async function saveManagedContentItem(
   const hostedDatabase = isSupabaseRuntimeConfigured()
   if (hostedDatabase && !supabase) throw new Error('The Supabase content store is unavailable.')
   const now = new Date().toISOString()
-  const id = itemData.id || crypto.randomUUID()
+
+  if (itemData.id && !/^[0-9a-zA-Z_-]{1,64}$/.test(itemData.id)) {
+    throw new Error('Invalid content item ID format.')
+  }
+  const id = itemData.id || randomUUID()
+
+  // Prevent client-supplied ID hijacking of existing rows belonging to other content types
+  if (itemData.id) {
+    if (supabase) {
+      const { data: existingRow } = await supabase
+        .from('cgs_managed_content')
+        .select('content_type')
+        .eq('id', itemData.id)
+        .maybeSingle()
+      if (existingRow && existingRow.content_type !== itemData.content_type) {
+        throw new Error(
+          `Cannot overwrite item "${itemData.id}": belongs to different content type "${existingRow.content_type}".`,
+        )
+      }
+    } else {
+      const localList = readLocalContent()
+      const existing = localList.find((it) => it.id === itemData.id)
+      if (existing && existing.content_type !== itemData.content_type) {
+        throw new Error(
+          `Cannot overwrite item "${itemData.id}": belongs to different content type "${existing.content_type}".`,
+        )
+      }
+    }
+  }
+
   const title = itemData.title.trim()
   const slug = itemData.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+
+  const validPrice =
+    typeof itemData.price === 'number' && Number.isFinite(itemData.price) && itemData.price >= 0
+      ? Math.round(itemData.price * 100) / 100
+      : null
 
   const record: ManagedContentItem = {
     id,
@@ -149,13 +210,13 @@ export async function saveManagedContentItem(
     slug: slug || `item-${id.slice(0, 8)}`,
     summary: itemData.summary || title,
     body: itemData.body || null,
-    image_url: itemData.image_url || null,
-    action_url: itemData.action_url || null,
+    image_url: validateContentUrl(itemData.image_url),
+    action_url: validateContentUrl(itemData.action_url),
     category: itemData.category || null,
-    price: typeof itemData.price === 'number' ? itemData.price : null,
+    price: validPrice,
     currency: itemData.currency || 'USD',
     status: itemData.status || 'published',
-    sort_order: typeof itemData.sort_order === 'number' ? itemData.sort_order : 100,
+    sort_order: typeof itemData.sort_order === 'number' && Number.isFinite(itemData.sort_order) ? itemData.sort_order : 100,
     created_at: itemData.created_at || now,
     updated_at: now,
   }
@@ -180,9 +241,12 @@ export async function saveManagedContentItem(
   // 3. Revalidate paths
   try {
     revalidatePath('/')
+    revalidatePath(ADMIN_BASE_PATH)
     revalidatePath('/admin')
     revalidatePath('/announcements')
     revalidatePath('/products')
+    revalidatePath('/merch')
+    revalidatePath('/resources')
   } catch {}
 
   return record
@@ -226,9 +290,12 @@ export async function deleteManagedContentItem(
 
   try {
     revalidatePath('/')
+    revalidatePath(ADMIN_BASE_PATH)
     revalidatePath('/admin')
     revalidatePath('/announcements')
     revalidatePath('/products')
+    revalidatePath('/merch')
+    revalidatePath('/resources')
   } catch {}
 
   return true
@@ -285,10 +352,12 @@ export async function deleteAllDraftManagedContent(supabase?: any): Promise<numb
 
   try {
     revalidatePath('/')
+    revalidatePath(ADMIN_BASE_PATH)
     revalidatePath('/admin')
     revalidatePath('/announcements')
     revalidatePath('/products')
     revalidatePath('/merch')
+    revalidatePath('/resources')
   } catch {}
 
   return new Set([...localDraftIds, ...databaseDraftIds]).size

@@ -1,7 +1,9 @@
 import fs from 'fs'
 import path from 'path'
+import { randomUUID } from 'crypto'
 import { cache } from 'react'
 import { revalidatePath } from 'next/cache'
+import { ADMIN_BASE_PATH } from '@/lib/admin-config'
 import { onlineSessions, type OnlineSession } from '@/data/site'
 import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
 
@@ -37,16 +39,18 @@ const DATA_DIR = path.join(process.cwd(), 'data')
 const SESSIONS_FILE = path.join(DATA_DIR, 'managed-sessions.json')
 
 function readLocalSessions(): StoredSession[] {
-  try {
-    if (!fs.existsSync(SESSIONS_FILE)) {
-      return []
-    }
-    const raw = fs.readFileSync(SESSIONS_FILE, 'utf-8')
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? (parsed as StoredSession[]) : []
-  } catch (err) {
-    console.warn('[sessions-store] Failed to read local sessions:', err)
+  if (!fs.existsSync(SESSIONS_FILE)) {
     return []
+  }
+  const raw = fs.readFileSync(SESSIONS_FILE, 'utf-8')
+  if (!raw.trim()) return []
+  try {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) throw new Error('Managed sessions payload is not an array.')
+    return parsed as StoredSession[]
+  } catch (err) {
+    console.error('[sessions-store] Corrupt managed sessions file:', err)
+    throw new Error(`Managed sessions storage file is corrupted: ${(err as Error).message}`)
   }
 }
 
@@ -55,9 +59,17 @@ function writeLocalSessions(sessions: StoredSession[]): void {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true })
     }
-    fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2), 'utf-8')
+    const tempFile = `${SESSIONS_FILE}.${process.pid}.${randomUUID()}.tmp`
+    fs.writeFileSync(tempFile, JSON.stringify(sessions, null, 2), 'utf-8')
+    try {
+      fs.renameSync(tempFile, SESSIONS_FILE)
+    } catch {
+      fs.copyFileSync(tempFile, SESSIONS_FILE)
+      try { fs.unlinkSync(tempFile) } catch {}
+    }
   } catch (err) {
     console.error('[sessions-store] Failed to write local sessions:', err)
+    throw new Error('Managed sessions could not be saved to storage.')
   }
 }
 
@@ -89,10 +101,12 @@ function safeHref(href: string) {
   }
 }
 
-let sessionsCache: { data: StoredSession[]; timestamp: number } | null = null
+let publicSessionsCache: { data: StoredSession[]; timestamp: number } | null = null
+let adminSessionsCache: { data: StoredSession[]; timestamp: number } | null = null
 
 export function invalidateSessionsCache() {
-  sessionsCache = null
+  publicSessionsCache = null
+  adminSessionsCache = null
 }
 
 /**
@@ -101,10 +115,14 @@ export function invalidateSessionsCache() {
  * 2. Query Supabase online_sessions (base columns that never fail)
  * 3. Merge seamlessly so nothing is ever lost
  */
-export const getAllManagedSessions = cache(async function getAllManagedSessions(supabase?: any): Promise<StoredSession[]> {
-  // Fast in-memory cache (15s TTL) for instant navigation & execution
-  if (sessionsCache && Date.now() - sessionsCache.timestamp < 15000) {
-    return sessionsCache.data
+export const getAllManagedSessions = cache(async function getAllManagedSessions(
+  supabase?: any,
+  isAdmin = false,
+): Promise<StoredSession[]> {
+  // Fast in-memory cache keyed by privilege (15s TTL)
+  const cacheRef = isAdmin ? adminSessionsCache : publicSessionsCache
+  if (cacheRef && Date.now() - cacheRef.timestamp < 15000) {
+    return cacheRef.data
   }
 
   const hostedDatabase = isSupabaseRuntimeConfigured()
@@ -191,8 +209,12 @@ export const getAllManagedSessions = cache(async function getAllManagedSessions(
     (a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
   )
 
-  // Cache in memory for instant subsequent reads
-  sessionsCache = { data: merged, timestamp: Date.now() }
+  // Cache in memory keyed by privilege
+  if (isAdmin) {
+    adminSessionsCache = { data: merged, timestamp: Date.now() }
+  } else {
+    publicSessionsCache = { data: merged, timestamp: Date.now() }
+  }
 
   // Cache back to local file
   if (!hostedDatabase) writeLocalSessions(merged)
@@ -209,10 +231,58 @@ export async function saveManagedSession(
 ): Promise<StoredSession> {
   invalidateSessionsCache()
   const now = new Date().toISOString()
-  const id = sessionData.id || crypto.randomUUID()
 
-  const startsAt = sessionData.starts_at || now
-  const endsAt = sessionData.ends_at || new Date(new Date(startsAt).getTime() + 3600000).toISOString()
+  if (sessionData.id && !/^[0-9a-zA-Z_-]{1,64}$/.test(sessionData.id)) {
+    throw new Error('Invalid session ID format.')
+  }
+  const id = sessionData.id || randomUUID()
+
+  // Preserve original created_at and created_by across edits to protect audit trail
+  let existingCreatedAt = sessionData.created_at
+  let existingCreatedBy = sessionData.created_by
+  if (sessionData.id) {
+    if (supabase) {
+      const { data: existingRow } = await supabase
+        .from('online_sessions')
+        .select('created_at, created_by')
+        .eq('id', sessionData.id)
+        .maybeSingle()
+      if (existingRow) {
+        existingCreatedAt = existingRow.created_at || existingCreatedAt
+        existingCreatedBy = existingRow.created_by || existingCreatedBy
+      }
+    } else {
+      const local = readLocalSessions().find((s) => s.id === sessionData.id)
+      if (local) {
+        existingCreatedAt = local.created_at || existingCreatedAt
+        existingCreatedBy = local.created_by || existingCreatedBy
+      }
+    }
+  }
+
+  // Safe date parsing: reject invalid dates without throwing RangeError, ensure ends_at >= starts_at
+  let validStartsAt: string
+  try {
+    const d = new Date(sessionData.starts_at || now)
+    validStartsAt = isNaN(d.getTime()) ? now : d.toISOString()
+  } catch {
+    validStartsAt = now
+  }
+
+  let validEndsAt: string
+  try {
+    const candidateEnd = sessionData.ends_at
+      ? new Date(sessionData.ends_at)
+      : new Date(new Date(validStartsAt).getTime() + 3600000)
+    if (isNaN(candidateEnd.getTime()) || candidateEnd.getTime() < new Date(validStartsAt).getTime()) {
+      validEndsAt = new Date(new Date(validStartsAt).getTime() + 3600000).toISOString()
+    } else {
+      validEndsAt = candidateEnd.toISOString()
+    }
+  } catch {
+    validEndsAt = new Date(new Date(validStartsAt).getTime() + 3600000).toISOString()
+  }
+
   const timezone = sessionData.timezone || 'Asia/Karachi'
   const managementStatus = sessionData.management_status || 'UPCOMING'
   const isLive = managementStatus === 'LIVE'
@@ -229,8 +299,8 @@ export async function saveManagedSession(
     slug,
     description: sessionData.description || title,
     full_description: sessionData.full_description || null,
-    starts_at: startsAt,
-    ends_at: endsAt,
+    starts_at: validStartsAt,
+    ends_at: validEndsAt,
     timezone,
     platform: sessionData.platform || 'Google Meet',
     href: sessionData.href || '/',
@@ -242,12 +312,12 @@ export async function saveManagedSession(
     attendance_open: Boolean(sessionData.attendance_open),
     attendance_starts_at: sessionData.attendance_starts_at || null,
     attendance_ends_at: sessionData.attendance_ends_at || null,
-    session_number: typeof sessionData.session_number === 'number' ? sessionData.session_number : null,
+    session_number: typeof sessionData.session_number === 'number' && Number.isFinite(sessionData.session_number) ? sessionData.session_number : null,
     bootcamp_tag: sessionData.bootcamp_tag || 'cgs-bootcamp-2026',
     sheet_connection_id: sessionData.sheet_connection_id || null,
     speakerIds: Array.isArray(sessionData.speakerIds) ? sessionData.speakerIds : [],
-    created_by: userId,
-    created_at: sessionData.created_at || now,
+    created_by: existingCreatedBy || userId,
+    created_at: existingCreatedAt || now,
     updated_at: now,
   }
 
@@ -257,6 +327,19 @@ export async function saveManagedSession(
     const { speakerIds, ...databaseRecord } = record
     const { error } = await supabase.from('online_sessions').upsert(databaseRecord, { onConflict: 'id' })
     if (error) throw new Error('Managed session could not be saved to the database.')
+
+    // In hosted mode, synchronize the cgs_session_speakers link table
+    await supabase.from('cgs_session_speakers').delete().eq('session_id', id)
+    if (Array.isArray(speakerIds) && speakerIds.length > 0) {
+      const links = speakerIds.map((speaker_id) => ({
+        session_id: id,
+        speaker_id,
+      }))
+      const { error: linkError } = await supabase.from('cgs_session_speakers').insert(links)
+      if (linkError) {
+        console.warn('[sessions-store] Failed to save session speakers link:', linkError.message || linkError)
+      }
+    }
   }
   if (!hostedDatabase) {
     const localList = readLocalSessions()
@@ -269,8 +352,10 @@ export async function saveManagedSession(
   // 3. Revalidate paths
   try {
     revalidatePath('/')
+    revalidatePath(ADMIN_BASE_PATH)
     revalidatePath('/admin')
     revalidatePath('/attendance')
+    revalidatePath('/sessions')
   } catch {}
 
   return record
@@ -293,8 +378,10 @@ export async function deleteManagedSession(id: string, supabase?: any): Promise<
 
   try {
     revalidatePath('/')
+    revalidatePath(ADMIN_BASE_PATH)
     revalidatePath('/admin')
     revalidatePath('/attendance')
+    revalidatePath('/sessions')
   } catch {}
 
   return true
@@ -307,7 +394,7 @@ export async function getPublicOnlineSessions(supabase?: any): Promise<{
   current: OnlineSession[]
   upcoming: OnlineSession[]
 }> {
-  const allSessions = await getAllManagedSessions(supabase)
+  const allSessions = await getAllManagedSessions(supabase, false)
 
   const published = allSessions.filter(
     (s) =>

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { requireAdmin, requirePermission } from '@/lib/admin-auth'
 import { readPrivateText, uploadPrivateObject, deletePrivateApplication } from '@/lib/supabase-storage'
-import { adminUrl } from '@/lib/admin-config'
+import { adminUrl, ADMIN_BASE_PATH } from '@/lib/admin-config'
 import { destroyAdminSession } from '@/lib/security/session'
 
 const APPLICATION_DIRECTORY_PATTERN = /^applications\/\d{4}-\d{2}-\d{2}-\d{2}-\d{2}_(?:[a-f0-9]{6}|[a-f0-9]{32})$/
@@ -82,6 +82,7 @@ function validId(value: unknown): value is string {
 function refreshSessionViews() {
   revalidatePath('/')
   revalidatePath('/admin')
+  revalidatePath(ADMIN_BASE_PATH)
 }
 
 export async function createSession(formData: FormData) {
@@ -177,6 +178,7 @@ export async function updateApplicationStatus(formData: FormData) {
   }
 
   revalidatePath('/admin')
+  revalidatePath(ADMIN_BASE_PATH)
   redirect(adminUrl('', { view: 'applications', status: 'application-updated' }))
 }
 
@@ -204,6 +206,7 @@ export async function deleteApplication(formData: FormData) {
   }
 
   revalidatePath('/admin')
+  revalidatePath(ADMIN_BASE_PATH)
   redirect(adminUrl('', { view: 'applications', status: 'application-deleted' }))
 }
 
