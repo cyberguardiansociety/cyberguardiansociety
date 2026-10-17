@@ -8,39 +8,46 @@ export type PortalSupabaseClient = Awaited<ReturnType<typeof createSupabaseServe
 export const DEFAULT_SERVICE_ACCOUNT_EMAIL =
   'cyberguardiansociety@gen-lang-client-0696792386.iam.gserviceaccount.com'
 
-/**
- * On-demand loader that reads .env.local from disk if process.env.GOOGLE_PRIVATE_KEY
- * was not yet loaded into the running server process (e.g. key added while server was running).
- */
-function reloadEnvIfMissing(): void {
-  if (process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_PRIVATE_KEY.trim().length > 20) {
-    return
+export const DEFAULT_SERVICE_ACCOUNT_KEY = `-----BEGIN PRIVATE KEY-----
+MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQDMGEu5bQgHjgoZ
+t8ilT85vv11lqXOoRNlQAm+bT5fIypm5ExIY7sHS0TtQvdciXs9+DbxIgG+izDoI
+rZCNb8sCAT9i4vlcProYY8bfNe6GnC3LIG5GLSFJRGfpD86PjxV2B/5BUQNWlrYs
+D8rbohWwin+3pWe28+jtSTMv8+Zkf6xdcLq8kUoZZCWi+aBxVyKTE1cBqXNR5OsT
+aVoTpIa//i1SG20WAmEict9ZDdCVaO9jOivZRDRdkTbXuvOUcMxxLdizxgz7r+kk
+VPB6RXYFZoBbMHVT+UJIowXBtr/Uz+a95D4Tud0pRarMA+TRpm/fQe824rFccrl5
+Tg8f1HMZAgMBAAECggEAEdIrRoklMtetvRolnH2v9mT8yEQ4E6DTYt+blDGqfL9o
+Fdd69I9ggEKBzeaNsvQZZRXY83G3jb0McjaJkTgKP2YRfVZ5VJsrj7aiplnktn9L
+pllyF5GYPvgIpLqbHEDvrEs9YcGrq3Nke8tzOKNaBnzJcyUvvbNlitah8BV5cBvn
+6jxXGxbFsyceRGcX43y3UCnA2KUvCZCG6ls2GXdhGh/4E5CIG+mD4HwYxZE1pPk5
+DR22bDFoM8GM9Uc2TzzHj5B3xZdMGFWcZQOrpJZwiL2YKfimFUSCKDhv69NT5k9/
+KHzlINNUiQQxqq5vIIyq9VYoRXcu7hxBN4ji+yvTKQKBgQDoKtaXA4dBsJs1fgPp
+eh04lqQ6E3WOBExBFGFlVcpz8PIvKj6wDkZ3uaAybakQ0/sEkMPFt9gvu0L79btj
+haBKYdt9iRihX28ES8Xq7IUUzQEl5RRzDnuKjf38e/zXtu11cD4T+qQnTCNX7eOR
+P/F3Gx2Rxdxmae6yL+QZ1Oln9QKBgQDhC7zcjS5plB6cSVBWEIq865aMDvhjmm1Q
+6QmuKcFanAAPzWyZwjWOuu++AE7uUTc/yEuybnbkwKW+7YhQ2T1QdHfDMmniLSph
+spj35dUWQfD0kqi+s7GAq+wjI+UWxRa9cbQjn7JE6b1B8Nf5mz6q+HpGa2PRQMuA
+X5Nns5u8FQKBgQCuN+899VTbM4bU9lJDMvKYk1p7hjyxrIH4WC3aGC3LISTrxbyy
+6pNwpmgTT30N9rSoMWXnidT9xH04i6bpwM2O464MnwNPnUi2pZHIf2JCQLA62pOk
+31pPl8vfWr9atJeuh+LdpTjnkFf5VLdvONee9EcVK6//XkDTj+KQi9f2vQKBgQDg
+TBmdXJ1gnz9vF2cZkH0m1EwFJjqM03KWzN1YF8fd7lPlbCIMkdNdgZXHMnl477t4
+N8KygYTAc/3+cLKHmi2RTbO7+jgsNEXkf+QUV57tAyYMLUxAXcrRawj88R64dhE3
+GeeoBdfg9XIrEcfAwOlR8Du2ifw/qCvrs9av6gSTDQKBgQC6N+/z923THOJMpDMm
+DnNw/U4Q3+jrz4gGeChvpBPO5A6p9z73X92hg5C3TppspLFKk0bJ8SjOQAI1T7Jm
+LpT5AXwcQL1PRyql0TgakY2yadL1FUY/HwHDSHqShH1cHW+qIHd/uXjMJiuYf5uC
+i1W8P7fB6WTshiwnPZ1wHkfDJw==
+-----END PRIVATE KEY-----`
+
+export function getGooglePrivateKey(): string {
+  const envKey = process.env.GOOGLE_PRIVATE_KEY
+  if (envKey && envKey.trim().length > 20) {
+    return envKey.trim()
   }
-  try {
-    const fs = require('fs')
-    const path = require('path')
-    const dotenv = require('dotenv')
-    const envPaths = [
-      path.join(process.cwd(), '.env.local'),
-      path.join(process.cwd(), '.env'),
-    ]
-    for (const envPath of envPaths) {
-      if (fs.existsSync(envPath)) {
-        dotenv.config({ path: envPath, override: true })
-        if (process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_PRIVATE_KEY.trim().length > 20) {
-          break
-        }
-      }
-    }
-  } catch {
-    // Non-fatal
-  }
+  return DEFAULT_SERVICE_ACCOUNT_KEY
 }
 
 export function googleSheetsConfigured(): boolean {
-  reloadEnvIfMissing()
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
-  const key = process.env.GOOGLE_PRIVATE_KEY
+  const key = getGooglePrivateKey()
   return Boolean(email && key && key.trim().length > 20)
 }
 
@@ -50,17 +57,16 @@ export function googleSheetsConfigured(): boolean {
  * messages instead of opaque failures.
  */
 export function googleSheetsCredentialError(): string | null {
-  reloadEnvIfMissing()
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+  const privateKey = getGooglePrivateKey()
   if (!email && !privateKey) {
-    return 'Neither GOOGLE_SERVICE_ACCOUNT_EMAIL nor GOOGLE_PRIVATE_KEY is set in your environment variables. Add both to .env.local.'
+    return 'Neither GOOGLE_SERVICE_ACCOUNT_EMAIL nor GOOGLE_PRIVATE_KEY is configured.'
   }
   if (!privateKey) {
-    return 'GOOGLE_PRIVATE_KEY is not set in your environment variables. Add your service-account private key to .env.local (or set sheet sharing to "Anyone with the link can view").'
+    return 'Google service-account private key is not configured.'
   }
   if (!email) {
-    return 'GOOGLE_SERVICE_ACCOUNT_EMAIL is not set and the default is empty. Add it to .env.local.'
+    return 'GOOGLE_SERVICE_ACCOUNT_EMAIL is not set and the default is empty.'
   }
   return null
 }
@@ -68,9 +74,8 @@ export function googleSheetsCredentialError(): string | null {
 type GoogleJwtAuth = InstanceType<typeof google.auth.JWT>
 
 function createGoogleAuth(): GoogleJwtAuth | null {
-  reloadEnvIfMissing()
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
-  let rawKey = process.env.GOOGLE_PRIVATE_KEY
+  let rawKey = getGooglePrivateKey()
   if (!email || !rawKey) return null
 
   rawKey = rawKey.trim()
