@@ -48,6 +48,8 @@ import {
   setGoogleConnectionActive,
   syncGoogleConnectionNow,
   deleteGoogleConnection,
+  deleteGoogleSyncRun,
+  clearGoogleSyncHistory,
 } from '@/app/admin/operations-actions'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -1184,11 +1186,12 @@ export function AttendanceManagementClient({
   error?: boolean
 }) {
   const manualOverridesCount = records.filter((r) => r.method === 'manual-override').length
+  const portalCheckinsCount = records.filter((r) => r.method === 'portal' || !r.method || r.method === 'qr').length
 
   return (
     <div className="attendance-workspace">
       {/* Top Metric Strip */}
-      <div className="cms-stats-grid">
+      <div className="cms-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
         <div className="cms-stat-card">
           <div className="cms-stat-icon cms-stat-icon--cobalt">
             <ClipboardCheck size={18} />
@@ -1201,11 +1204,11 @@ export function AttendanceManagementClient({
 
         <div className="cms-stat-card">
           <div className="cms-stat-icon cms-stat-icon--green">
-            <CalendarDays size={18} />
+            <CheckCircle2 size={18} />
           </div>
           <div className="cms-stat-info">
-            <span className="cms-stat-label">Active Sessions</span>
-            <strong className="cms-stat-value">{sessions.length}</strong>
+            <span className="cms-stat-label">Portal Check-ins</span>
+            <strong className="cms-stat-value">{portalCheckinsCount}</strong>
           </div>
         </div>
 
@@ -1216,6 +1219,16 @@ export function AttendanceManagementClient({
           <div className="cms-stat-info">
             <span className="cms-stat-label">Manual Overrides</span>
             <strong className="cms-stat-value">{manualOverridesCount}</strong>
+          </div>
+        </div>
+
+        <div className="cms-stat-card">
+          <div className="cms-stat-icon cms-stat-icon--purple">
+            <CalendarDays size={18} />
+          </div>
+          <div className="cms-stat-info">
+            <span className="cms-stat-label">Active Sessions</span>
+            <strong className="cms-stat-value">{sessions.length}</strong>
           </div>
         </div>
       </div>
@@ -1373,8 +1386,14 @@ export function AttendanceManagementClient({
                             <span className="table-time-text">{displayDate(rec.marked_at)}</span>
                           </td>
                           <td data-label="Method">
-                            <span className={`audit-badge ${isManual ? 'audit-badge--amber' : 'audit-badge--green'}`}>
-                              {isManual ? 'Manual Override' : 'QR / Verified'}
+                            <span className={`audit-badge ${
+                              isManual
+                                ? 'audit-badge--amber'
+                                : rec.method === 'portal'
+                                ? 'audit-badge--green'
+                                : 'audit-badge--blue'
+                            }`}>
+                              {isManual ? 'Manual Override' : rec.method === 'portal' ? 'Portal Check-in' : rec.method === 'qr' ? 'QR Code' : 'Verified'}
                             </span>
                             {rec.override_reason && (
                               <small className="admin-table__subline" style={{ display: 'block', marginTop: '3px' }}>
@@ -1383,16 +1402,22 @@ export function AttendanceManagementClient({
                             )}
                           </td>
                           <td data-label="Actions" style={{ textAlign: 'right' }}>
-                            {isManual ? (
-                              <form action={removeManualAttendance} className="cms-inline-del-form">
-                                <input type="hidden" name="id" value={rec.id} />
-                                <button className="cms-row-delete-btn" type="submit" title="Remove manual override">
-                                   <Trash2 size={13} />
-                                </button>
-                              </form>
-                            ) : (
-                              <span style={{ opacity: 0.3 }}>—</span>
-                            )}
+                            <form action={removeManualAttendance} className="cms-inline-del-form">
+                              <input type="hidden" name="id" value={rec.id} />
+                              <button
+                                className="cms-row-delete-btn"
+                                type="submit"
+                                title="Delete attendance record"
+                                onClick={(e) => {
+                                  const targetName = person?.name || person?.email || 'this attendee'
+                                  if (!window.confirm(`Delete attendance record for "${targetName}"?`)) {
+                                    e.preventDefault()
+                                  }
+                                }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </form>
                           </td>
                         </tr>
                       )
@@ -2208,7 +2233,7 @@ export function GoogleSyncManagementClient({
 
       {/* ──────── Sync Audit Activity Log ──────── */}
       <div className="gsync-audit-card">
-        <div className="gsync-audit-header">
+        <div className="gsync-audit-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
           <div className="gsync-audit-header-left">
             <RefreshCw size={16} className="text-blue-400" />
             <div>
@@ -2216,6 +2241,35 @@ export function GoogleSyncManagementClient({
               <span className="gsync-audit-count">{syncRuns.length} recent runs</span>
             </div>
           </div>
+
+          {syncRuns.length > 0 && (
+            <form action={clearGoogleSyncHistory} className="gsync-inline-form">
+              <button
+                type="submit"
+                className="admin-secondary-button"
+                style={{
+                  fontSize: '12px',
+                  padding: '5px 12px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  color: '#f87171',
+                  borderColor: 'rgba(239, 68, 68, 0.3)',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                }}
+                onClick={(e) => {
+                  if (!window.confirm('Delete all synchronization audit log history? This will clear all recorded sync run entries.')) {
+                    e.preventDefault()
+                  }
+                }}
+                title="Clear all synchronization log entries"
+              >
+                <Trash2 size={13} />
+                <span>Clear Audit Log</span>
+              </button>
+            </form>
+          )}
         </div>
 
         <div className="admin-table-wrap">
@@ -2239,6 +2293,7 @@ export function GoogleSyncManagementClient({
                   <th>Updated</th>
                   <th>Skipped</th>
                   <th>Details</th>
+                  <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -2278,6 +2333,23 @@ export function GoogleSyncManagementClient({
                         ) : (
                           <span className="gsync-ok-text">Sync verified</span>
                         )}
+                      </td>
+                      <td data-label="Actions" style={{ textAlign: 'right' }}>
+                        <form action={deleteGoogleSyncRun} className="cms-inline-del-form">
+                          <input type="hidden" name="id" value={run.id} />
+                          <button
+                            className="cms-row-delete-btn"
+                            type="submit"
+                            title="Delete this sync log entry"
+                            onClick={(e) => {
+                              if (!window.confirm('Delete this sync run log entry?')) {
+                                e.preventDefault()
+                              }
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </form>
                       </td>
                     </tr>
                   )

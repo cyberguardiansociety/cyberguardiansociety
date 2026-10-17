@@ -579,24 +579,26 @@ export async function removeManualAttendance(formData: FormData) {
   const { supabase, user } = await requirePermission('sessions')
   const id = formData.get('id')
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id)) fail('attendance', 'invalid')
-  const { error } = await supabase.from('cgs_attendance_records').delete().eq('id', id).eq('method', 'manual-override')
+  const { error } = await supabase.from('cgs_attendance_records').delete().eq('id', id)
   if (error) fail('attendance', 'delete')
 
   try {
     const { logAudit } = await import('@/lib/supabase/audit')
     await logAudit({
       actor_id: user.id,
-      action: 'remove_override',
+      action: 'remove_attendance',
       entity: 'cgs_attendance_records',
       entity_id: id,
       details: { id },
     })
   } catch (auditErr) {
-    console.warn('[Audit Log] Failed to log attendance override removal:', auditErr)
+    console.warn('[Audit Log] Failed to log attendance record removal:', auditErr)
   }
 
   done('attendance', 'attendance-removed')
 }
+
+export const deleteAttendanceRecord = removeManualAttendance
 
 export async function deleteRegistrant(formData: FormData) {
   const { supabase, user } = await requirePermission('sessions')
@@ -867,4 +869,48 @@ export async function deleteGoogleConnection(formData: FormData) {
   }
 
   done('google-sync', 'connection-deleted')
+}
+
+export async function deleteGoogleSyncRun(formData: FormData) {
+  const { supabase, user } = await requirePermission('google_sync')
+  const id = formData.get('id')
+  if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id)) fail('google-sync', 'invalid-connection')
+  const { error } = await supabase.from('cgs_google_sync_runs').delete().eq('id', id)
+  if (error) fail('google-sync', 'delete')
+
+  try {
+    const { logAudit } = await import('@/lib/supabase/audit')
+    await logAudit({
+      actor_id: user.id,
+      action: 'delete_sync_run',
+      entity: 'cgs_google_sync_runs',
+      entity_id: id,
+      details: { id },
+    })
+  } catch (auditErr) {
+    console.warn('[Audit Log] Failed to log google sync run deletion:', auditErr)
+  }
+
+  done('google-sync', 'sync-run-deleted')
+}
+
+export async function clearGoogleSyncHistory() {
+  const { supabase, user } = await requirePermission('google_sync')
+  const { error } = await supabase.from('cgs_google_sync_runs').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  if (error) fail('google-sync', 'delete')
+
+  try {
+    const { logAudit } = await import('@/lib/supabase/audit')
+    await logAudit({
+      actor_id: user.id,
+      action: 'clear_sync_history',
+      entity: 'cgs_google_sync_runs',
+      entity_id: 'all_runs',
+      details: { cleared: true },
+    })
+  } catch (auditErr) {
+    console.warn('[Audit Log] Failed to log google sync runs clear:', auditErr)
+  }
+
+  done('google-sync', 'sync-history-cleared')
 }

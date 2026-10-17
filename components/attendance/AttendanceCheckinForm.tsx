@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import toast, { Toaster } from 'react-hot-toast'
 import {
   ArrowRight,
   Check,
@@ -51,9 +52,30 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
       })
       const payload = (await response.json()) as SubmissionResult
       setResult(payload)
-      if (payload.success) formRef.current?.reset()
+      if (payload.success) {
+        formRef.current?.reset()
+        if (payload.alreadyMarked) {
+          toast('Your attendance is already on record for this session.', {
+            icon: 'ℹ️',
+            id: 'attendance-toast',
+            duration: 6000,
+          })
+        } else {
+          toast.success('Your attendance marked successfully!', {
+            id: 'attendance-toast',
+            duration: 6000,
+          })
+        }
+      } else {
+        toast.error(payload.message || 'Attendance verification failed.', {
+          id: 'attendance-toast',
+          duration: 6000,
+        })
+      }
     } catch {
-      setResult({ success: false, message: 'Attendance could not be verified. Please try again.' })
+      const msg = 'Attendance could not be verified. Please try again.'
+      setResult({ success: false, message: msg })
+      toast.error(msg, { id: 'attendance-toast', duration: 6000 })
     } finally {
       setPending(false)
     }
@@ -82,6 +104,44 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
 
     return (
       <div className="attendance-success-screen" role="status" aria-live="polite">
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 6000,
+            style: {
+              background: '#090d16',
+              color: '#f1f5f9',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.2)',
+              fontSize: '14px',
+              fontWeight: '500',
+            },
+          }}
+        />
+
+        <div className="attendance-notification-banner" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '14px 18px',
+          background: 'rgba(16, 185, 129, 0.12)',
+          border: '1px solid rgba(16, 185, 129, 0.4)',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          textAlign: 'left',
+          width: '100%',
+        }}>
+          <CheckCircle2 size={24} className="text-emerald-400 shrink-0" style={{ color: '#34d399' }} />
+          <div>
+            <strong style={{ display: 'block', fontSize: '15px', color: '#10b981' }}>
+              Your attendance marked successfully!
+            </strong>
+            <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+              Confirmed for {result.sessionTitle || 'this session'}. Your learning record is verified.
+            </span>
+          </div>
+        </div>
+
         <div className="attendance-success-card">
           <div className="attendance-success-badge">
             <Sparkles size={14} className="text-emerald-400" />
@@ -94,7 +154,7 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
           </div>
 
           <h3 className="attendance-success-title">
-            {result.alreadyMarked ? 'Attendance Confirmed' : 'Attendance Marked Successfully!'}
+            {result.alreadyMarked ? 'Attendance Confirmed' : 'Your Attendance Marked Successfully!'}
           </h3>
 
           <p className="attendance-success-subtitle">
@@ -181,6 +241,20 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
   // ── Verification Input Form ──────────────────────────────────────────────
   return (
     <form ref={formRef} action={submit} className="attendance-checkin-form">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 6000,
+          style: {
+            background: '#090d16',
+            color: '#f1f5f9',
+            border: '1px solid rgba(16, 185, 129, 0.4)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(16, 185, 129, 0.2)',
+            fontSize: '14px',
+            fontWeight: '500',
+          },
+        }}
+      />
       {sessionId ? <input type="hidden" name="sessionId" value={sessionId} /> : null}
 
       <div className="cms-form-group">

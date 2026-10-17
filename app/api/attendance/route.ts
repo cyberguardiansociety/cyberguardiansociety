@@ -133,36 +133,52 @@ export async function POST(request: Request) {
 
   const now = Date.now()
   const { data: sessions, error: sessionError } = await supabase.from('online_sessions')
-    .select('id, title, starts_at, ends_at, attendance_starts_at, attendance_ends_at')
+    .select('id, title, starts_at, ends_at, attendance_starts_at, attendance_ends_at, attendance_open, is_active')
     .eq('is_active', true)
-    .eq('attendance_open', true)
     .order('starts_at', { ascending: false })
     .limit(100)
   if (sessionError) return fail('Attendance is temporarily unavailable.', 503, 'PORTAL_OFFLINE')
 
-  const session = (sessions ?? []).find((candidate) => {
-    if (requestedSessionId && candidate.id !== requestedSessionId) return false
+  // Find candidate sessions where attendance is open and within custom window (if configured)
+  const openSessions = (sessions ?? []).filter((candidate) => {
+    if (!candidate.attendance_open) return false
     const attendanceStart = candidate.attendance_starts_at ? new Date(candidate.attendance_starts_at).getTime() : null
     const attendanceEnd = candidate.attendance_ends_at ? new Date(candidate.attendance_ends_at).getTime() : null
-    if (attendanceStart !== null && attendanceEnd !== null && Number.isFinite(attendanceStart) && Number.isFinite(attendanceEnd)) {
-      return now >= attendanceStart && now <= attendanceEnd
+    if (attendanceStart !== null && Number.isFinite(attendanceStart) && now < attendanceStart) {
+      return false
     }
-    if (attendanceStart !== null && Number.isFinite(attendanceStart)) {
-      return now >= attendanceStart
-    }
-    if (attendanceEnd !== null && Number.isFinite(attendanceEnd)) {
-      return now <= attendanceEnd
-    }
-    const start = candidate.starts_at ? new Date(candidate.starts_at).getTime() - TWO_HOURS : NaN
-    const end = candidate.ends_at
-      ? new Date(candidate.ends_at).getTime() + TWO_HOURS
-      : (Number.isFinite(start) ? start + 6 * 60 * 60 * 1000 : NaN)
-    if (Number.isFinite(start) && Number.isFinite(end)) {
-      return now >= start && now <= end
+    if (attendanceEnd !== null && Number.isFinite(attendanceEnd) && now > attendanceEnd) {
+      return false
     }
     return true
   })
-  if (!session) return fail('There is no session accepting attendance right now.', 403, 'NO_ACTIVE_SESSION')
+
+  let session = requestedSessionId ? openSessions.find((s) => s.id === requestedSessionId) : openSessions[0]
+
+  // If specific session requested but not accepted, provide accurate diagnosis
+  if (!session && requestedSessionId) {
+    const target = (sessions ?? []).find((s) => s.id === requestedSessionId)
+    if (target && !target.attendance_open) {
+      return fail(`Attendance check-in is currently closed for "${target.title}".`, 403, 'ATTENDANCE_CLOSED')
+    }
+    if (target) {
+      const attendanceStart = target.attendance_starts_at ? new Date(target.attendance_starts_at).getTime() : null
+      const attendanceEnd = target.attendance_ends_at ? new Date(target.attendance_ends_at).getTime() : null
+      if (attendanceStart !== null && Number.isFinite(attendanceStart) && now < attendanceStart) {
+        return fail(`Attendance for "${target.title}" is not open yet.`, 403, 'ATTENDANCE_NOT_OPEN_YET')
+      }
+      if (attendanceEnd !== null && Number.isFinite(attendanceEnd) && now > attendanceEnd) {
+        return fail(`Attendance window for "${target.title}" has ended.`, 403, 'ATTENDANCE_EXPIRED')
+      }
+    }
+  }
+
+  // Fallback to first available open session
+  if (!session && openSessions.length > 0) {
+    session = openSessions[0]
+  }
+
+  if (!session) return fail('There is no session accepting attendance check-ins right now.', 403, 'NO_ACTIVE_SESSION')
 
   // 1. Verify registrant exists by email
   const { data: registrant, error: registrantError } = await supabase.from('cgs_registrants')
@@ -197,6 +213,7 @@ export async function POST(request: Request) {
   if (registrationError) return fail('Attendance is temporarily unavailable.', 503, 'PORTAL_OFFLINE')
   if (!registration) {
     await supabase.from('cgs_session_registrations').insert({
+      id: crypto.randomUUID(),
       registrant_id: registrant.id,
       session_id: session.id,
       source: 'portal-checkin',
@@ -204,8 +221,16 @@ export async function POST(request: Request) {
   }
 
   // 4. Record attendance
+  const newRecordId = crypto.randomUUID()
+  const markedAtIso = new Date().toISOString()
   const { data: attendanceRecord, error: attendanceError } = await supabase.from('cgs_attendance_records')
-    .insert({ registrant_id: registrant.id, session_id: session.id, method: 'portal' })
+    .insert({
+      id: newRecordId,
+      registrant_id: registrant.id,
+      session_id: session.id,
+      method: 'portal',
+      marked_at: markedAtIso,
+    })
     .select('id, marked_at')
     .single()
   if (attendanceError?.code === '23505') {
@@ -226,7 +251,10 @@ export async function POST(request: Request) {
       certificateId: certificateNumber(existingRecord.id),
     })
   }
-  if (attendanceError || !attendanceRecord) return fail('Attendance could not be recorded. Please try again.', 503, 'PORTAL_OFFLINE')
+  if (attendanceError || !attendanceRecord) {
+    console.error('[Attendance API] Failed to record attendance:', attendanceError)
+    return fail('Attendance could not be recorded. Please try again.', 503, 'PORTAL_OFFLINE')
+  }
 
   // Record in audit log
   try {
@@ -248,7 +276,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     success: true,
     alreadyMarked: false,
-    message: `Attendance recorded for ${session.title}.`,
+    message: `Your attendance has been marked successfully for ${session.title}!`,
     participantName: registrant.name || name,
     participantEmail: email,
     sessionTitle: session.title,
