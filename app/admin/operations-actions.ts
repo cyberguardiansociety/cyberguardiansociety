@@ -635,15 +635,22 @@ export async function updateInboxMessageStatus(formData: FormData) {
     typeof id !== 'string' || !SESSION_ID_PATTERN.test(id) ||
     typeof status !== 'string' || !['new', 'in_progress', 'closed'].includes(status)
   ) fail('inbox', 'invalid')
-  const { data: message } = await context.supabase.from('cgs_inbox_messages')
+
+  const hasInbox = hasAdminPermission(context.admin, 'inbox')
+  const hasSpeakerApps = hasAdminPermission(context.admin, 'speaker_applications')
+  if (!hasInbox && !hasSpeakerApps) fail('inbox', 'forbidden')
+
+  const perm = hasInbox ? 'inbox' : 'speaker_applications'
+  const { supabase } = await requirePermission(perm)
+
+  const { data: message } = await supabase.from('cgs_inbox_messages')
     .select('id, metadata')
     .eq('id', id)
     .maybeSingle()
   const isSpeakerApplication = message?.metadata?.source === 'speaker-application'
-  const allowed = hasAdminPermission(context.admin, 'inbox') ||
-    (isSpeakerApplication && hasAdminPermission(context.admin, 'speaker_applications'))
+  const allowed = hasInbox || (isSpeakerApplication && hasSpeakerApps)
   if (!allowed) fail('inbox', 'forbidden')
-  const { error } = await context.supabase.from('cgs_inbox_messages').update({
+  const { error } = await supabase.from('cgs_inbox_messages').update({
     status,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
@@ -669,16 +676,23 @@ export async function deleteInboxMessage(formData: FormData) {
   const context = await requireAdmin()
   const id = formData.get('id')
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id)) fail('inbox', 'invalid')
-  const { data: message } = await context.supabase.from('cgs_inbox_messages')
+
+  const hasInbox = hasAdminPermission(context.admin, 'inbox')
+  const hasSpeakerApps = hasAdminPermission(context.admin, 'speaker_applications')
+  if (!hasInbox && !hasSpeakerApps) fail('inbox', 'forbidden')
+
+  const perm = hasInbox ? 'inbox' : 'speaker_applications'
+  const { supabase } = await requirePermission(perm)
+
+  const { data: message } = await supabase.from('cgs_inbox_messages')
     .select('id, metadata')
     .eq('id', id)
     .maybeSingle()
   if (!message) fail('inbox', 'not-found')
   const isSpeakerApplication = message?.metadata?.source === 'speaker-application'
-  const allowed = hasAdminPermission(context.admin, 'inbox') ||
-    (isSpeakerApplication && hasAdminPermission(context.admin, 'speaker_applications'))
+  const allowed = hasInbox || (isSpeakerApplication && hasSpeakerApps)
   if (!allowed) fail('inbox', 'forbidden')
-  const { error } = await context.supabase.from('cgs_inbox_messages').delete().eq('id', id)
+  const { error } = await supabase.from('cgs_inbox_messages').delete().eq('id', id)
   if (error) fail('inbox', 'inbox-delete')
 
   try {
@@ -698,15 +712,14 @@ export async function deleteInboxMessage(formData: FormData) {
 }
 
 export async function clearClosedInboxMessages() {
-  const context = await requireAdmin()
-  if (!hasAdminPermission(context.admin, 'inbox')) fail('inbox', 'forbidden')
-  const { error } = await context.supabase.from('cgs_inbox_messages').delete().eq('status', 'closed')
+  const { supabase, user } = await requirePermission('inbox')
+  const { error } = await supabase.from('cgs_inbox_messages').delete().eq('status', 'closed')
   if (error) fail('inbox', 'inbox-delete')
 
   try {
     const { logAudit } = await import('@/lib/supabase/audit')
     await logAudit({
-      actor_id: context.user.id,
+      actor_id: user.id,
       action: 'clear_closed',
       entity: 'cgs_inbox_messages',
       entity_id: 'all_closed_messages',

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight, CalendarDays, Check, Clock3, Radio, ShieldCheck } from 'lucide-react'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireAdmin, requirePermission, hasAdminPermission, type AdminPermission } from '@/lib/admin-auth'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 import { signOut } from '@/app/admin/actions'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 import AdminApplications from '@/components/admin/AdminApplications'
@@ -11,7 +12,6 @@ import AdminAdministrators from '@/components/admin/AdminAdministrators'
 import AdminSpeakerApplications from '@/components/admin/AdminSpeakerApplications'
 import AdminAuditLog, { type AuditLogEntry } from '@/components/admin/AdminAuditLog'
 import AdminSettings from '@/components/admin/AdminSettings'
-import { hasAdminPermission, type AdminPermission } from '@/lib/admin-auth'
 
 type SessionOperationsView = 'sessions' | 'time-management' | 'attendance' | 'registrants' | 'google-sync'
 const sessionViews = new Set<string>(['sessions', 'time-management', 'attendance', 'registrants', 'google-sync'])
@@ -292,7 +292,7 @@ export default async function AdminPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
-  const { supabase, user, admin } = await requireAdmin()
+  const { user, admin } = await requireAdmin()
   const params = await searchParams
   const requestedView = typeof params.view === 'string' ? params.view : undefined
   const queryError   = typeof params.error === 'string' ? params.error : undefined
@@ -315,23 +315,31 @@ export default async function AdminPage({
   let totalActivityCount = 0
 
   if (activeView === 'overview') {
-    const [{ data: sessionsData, error: sErr }, { data: activityData, count: aCount }] = await Promise.all([
-      supabase
-        .from('online_sessions')
-        .select('id, title, description, starts_at, platform, href, status, is_published')
-        .order('starts_at', { ascending: true }),
-      supabase
-        .from('admin_audit_log')
-        .select('id, actor_id, action, entity, entity_id, details, created_at', { count: 'exact' })
-        .order('created_at', { ascending: false })
-        .limit(6),
+    const canViewSessions = hasAdminPermission(admin, 'sessions')
+    const canViewAudit = hasAdminPermission(admin, 'audit')
+
+    const [sessionsRes, activityRes] = await Promise.all([
+      canViewSessions
+        ? createSupabaseServiceClient()
+            .from('online_sessions')
+            .select('id, title, description, starts_at, platform, href, status, is_published')
+            .order('starts_at', { ascending: true })
+        : Promise.resolve({ data: [], error: null }),
+      canViewAudit
+        ? createSupabaseServiceClient()
+            .from('admin_audit_log')
+            .select('id, actor_id, action, entity, entity_id, details, created_at', { count: 'exact' })
+            .order('created_at', { ascending: false })
+            .limit(6)
+        : Promise.resolve({ data: [], count: 0 }),
     ])
-    sessions = (sessionsData ?? []) as SessionRow[]
-    sessionsError = sErr
-    activity = (activityData ?? []) as AuditLogEntry[]
-    totalActivityCount = aCount ?? activity.length
+    sessions = (sessionsRes.data ?? []) as SessionRow[]
+    sessionsError = sessionsRes.error
+    activity = (activityRes.data ?? []) as AuditLogEntry[]
+    totalActivityCount = activityRes.count ?? activity.length
   } else if (activeView === 'activity') {
-    const { data: activityData } = await supabase
+    const { supabase: auditDb } = await requirePermission('audit')
+    const { data: activityData } = await auditDb
       .from('admin_audit_log')
       .select('id, actor_id, action, entity, entity_id, details, created_at')
       .order('created_at', { ascending: false })

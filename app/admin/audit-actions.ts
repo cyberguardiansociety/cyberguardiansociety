@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
-import { requireAdmin, hasAdminPermission } from '@/lib/admin-auth'
+import { requirePermission } from '@/lib/admin-auth'
 import { adminUrl } from '@/lib/admin-config'
 
 const DELETE_AUDIT_LOGS_PHRASE = 'DELETE ALL AUDIT LOGS'
@@ -13,11 +13,7 @@ function returnToActivity(result: { status?: string; error?: string }): never {
 }
 
 export async function clearAllAuditLogs(formData: FormData) {
-  const { admin, supabase } = await requireAdmin()
-
-  if (admin.role !== 'super_admin' && !hasAdminPermission(admin, 'audit')) {
-    returnToActivity({ error: 'forbidden' })
-  }
+  const { supabase } = await requirePermission('audit')
 
   const confirmation = String(formData.get('confirmation') || '').trim().toUpperCase()
 

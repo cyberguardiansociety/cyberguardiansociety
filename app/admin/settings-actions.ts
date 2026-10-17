@@ -8,6 +8,7 @@ import { savePortalSetting, saveMaintenanceMessage as persistMaintenanceMessage,
 import { clearAllAccountLockouts } from '@/lib/security/lockout'
 import { deleteAllDraftManagedContent } from '@/lib/managed-content-store'
 import { logAudit } from '@/lib/supabase/audit'
+import { createSupabaseServiceClient } from '@/lib/supabase/service'
 
 const settingKeys: PortalSettingKey[] = [
   'portal_open',
@@ -96,7 +97,7 @@ const dangerActions = {
 } as const
 
 export async function runDangerZoneAction(formData: FormData) {
-  const { user, supabase } = await requireSuperAdmin()
+  const { user } = await requireSuperAdmin()
   const action = formData.get('action')
   const confirmation = formData.get('confirmation')
   if (typeof action !== 'string' || !Object.prototype.hasOwnProperty.call(dangerActions, action)) {
@@ -119,7 +120,7 @@ export async function runDangerZoneAction(formData: FormData) {
       await logAudit({ actor_id: user.id, action: 'clear', entity: 'admin_login_lockouts', details: { records_cleared: cleared } })
       successStatus = 'lockouts-cleared'
     } else {
-      const deleted = await deleteAllDraftManagedContent(supabase)
+      const deleted = await deleteAllDraftManagedContent(createSupabaseServiceClient())
       await logAudit({ actor_id: user.id, action: 'bulk_delete', entity: 'cgs_managed_content_drafts', details: { records_deleted: deleted } })
       successStatus = 'draft-content-deleted'
     }

@@ -14,7 +14,7 @@ import {
   Tag,
   ChevronDown,
 } from 'lucide-react'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requirePermission } from '@/lib/admin-auth'
 import { updateInboxMessageStatus, deleteInboxMessage, clearClosedInboxMessages } from '@/app/admin/operations-actions'
 import AdminDeleteButton from '@/components/admin/AdminDeleteButton'
 
@@ -47,7 +47,7 @@ export default async function AdminInbox({
   query?: string
   statusFilter?: string
 }) {
-  const { supabase } = await requireAdmin()
+  const { supabase } = await requirePermission('inbox')
   const filter = ['new', 'in_progress', 'closed'].includes(statusFilter) ? statusFilter : ''
   const search = query.trim().slice(0, 100)
 

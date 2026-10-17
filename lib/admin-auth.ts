@@ -24,88 +24,150 @@ export const ADMIN_PERMISSION_KEYS = [
 
 export type AdminPermission = (typeof ADMIN_PERMISSION_KEYS)[number]
 
+export const VALID_ADMIN_ROLES = ['super_admin', 'admin', 'limited_admin'] as const
+export type AdminRole = (typeof VALID_ADMIN_ROLES)[number]
+
+export type AdminUserContext = {
+  user_id: string
+  role: AdminRole
+  permission_keys: AdminPermission[]
+}
+
+export type AdminAuthContext = {
+  user: { id: string; email: string }
+  admin: AdminUserContext
+}
+
+export type AdminPermissionContext = AdminAuthContext & {
+  supabase: ReturnType<typeof createSupabaseServiceClient>
+}
+
+/**
+ * Validates permission against role & explicit keys:
+ * - Only 'super_admin' skips permission checks completely.
+ * - 'admins', 'audit', and 'payments' strictly require an explicit key for everyone else.
+ * - For non-sensitive permissions, 'admin' role has access, while 'limited_admin' requires the explicit key.
+ */
 export function hasAdminPermission(
   admin: { role: string; permission_keys?: string[] | null },
   permission: AdminPermission,
-) {
-  return admin.role === 'super_admin' || admin.role === 'admin' || Boolean(admin.permission_keys?.includes(permission))
+): boolean {
+  if (admin.role === 'super_admin') {
+    return true
+  }
+
+  // Sensitive security operations strictly require an explicit key
+  const sensitivePermissions: AdminPermission[] = ['admins', 'audit', 'payments']
+  if (sensitivePermissions.includes(permission)) {
+    return Boolean(admin.permission_keys?.includes(permission))
+  }
+
+  if (admin.role === 'admin') {
+    return true
+  }
+
+  return Boolean(admin.permission_keys?.includes(permission))
 }
 
-type CachedAdmin = {
-  user: { id: string; email: string }
-  admin: { user_id: string; role: string; permission_keys: string[] }
-  timestamp: number
+/**
+ * Deprecated memory cache stub maintained for interface compatibility.
+ * Database is queried on every request to guarantee instant revocation.
+ */
+export function invalidateAdminCache(_userId?: string) {
+  // Database lookup occurs on each request cycle; no cross-instance stale cache.
 }
 
-const adminMemoryCache = new Map<string, CachedAdmin>()
-
-export function invalidateAdminCache(userId?: string) {
-  if (userId) adminMemoryCache.delete(userId)
-  else adminMemoryCache.clear()
-}
-
-export const getAdminContext = cache(async function getAdminContext() {
-  // Require the signed application admin session
+/**
+ * Retrieves the current authenticated admin context.
+ * Deduplicated per-request via React cache().
+ * Queries database on each request to ensure immediate revocation.
+ * Does NOT hand out the service client freely.
+ */
+export const getAdminContext = cache(async function getAdminContext(): Promise<AdminAuthContext | null> {
+  // 1. Require signed, unexpired session cookie
   const verifiedSession = await getVerifiedAdminSession()
   if (!verifiedSession) {
     return null
   }
 
-  // Check fast in-memory cache first (60s TTL)
-  const cached = adminMemoryCache.get(verifiedSession.userId)
-  if (cached && Date.now() - cached.timestamp < 60000) {
-    return {
-      user: cached.user,
-      admin: cached.admin,
-      supabase: createSupabaseServiceClient(),
+  // 2. Query database on every request to ensure instant revocation & permissions sync
+  let adminRecord: any = null
+  try {
+    const database = createSupabaseServiceClient()
+    const { data, error } = await database
+      .from('admin_users')
+      .select('user_id, role, permission_keys, active')
+      .eq('user_id', verifiedSession.userId)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[admin-auth] Database error while fetching admin record for userId:', verifiedSession.userId, error)
+      return null
     }
-  }
-
-  // Lookup admin user from database
-  const database = createSupabaseServiceClient()
-  const { data: adminRecord, error } = await database.from('admin_users')
-    .select('user_id, role, permission_keys, active')
-    .eq('user_id', verifiedSession.userId)
-    .maybeSingle()
-
-  if (error || !adminRecord || (adminRecord.active !== true && adminRecord.active !== 1)) {
-    adminMemoryCache.delete(verifiedSession.userId)
+    adminRecord = data
+  } catch (err) {
+    console.error('[admin-auth] Unexpected exception querying admin_users table:', err)
     return null
   }
 
-  let permissionKeys: string[] = []
+  // 3. User must exist in admin_users table
+  if (!adminRecord) {
+    console.warn('[admin-auth] Admin record not found in database for session userId:', verifiedSession.userId)
+    return null
+  }
+
+  // 4. Normalize and verify active status (boolean, 1, or 'true')
+  const isActive = adminRecord.active === true || adminRecord.active === 1 || adminRecord.active === 'true'
+  if (!isActive) {
+    console.warn('[admin-auth] Inactive or suspended admin access attempted by userId:', verifiedSession.userId)
+    return null
+  }
+
+  // 5. Strictly validate role without silent fallback to super_admin
+  if (!adminRecord.role || !VALID_ADMIN_ROLES.includes(adminRecord.role as AdminRole)) {
+    console.error('[admin-auth] Missing or unknown role in admin record for userId:', verifiedSession.userId, adminRecord.role)
+    return null
+  }
+  const role = adminRecord.role as AdminRole
+
+  // 6. Validate and sanitize permission keys against ADMIN_PERMISSION_KEYS
+  let permissionKeys: AdminPermission[] = []
   try {
-    const parsed = Array.isArray(adminRecord.permission_keys)
+    const rawKeys = Array.isArray(adminRecord.permission_keys)
       ? adminRecord.permission_keys
-      : adminRecord.permission_keys ? JSON.parse(adminRecord.permission_keys) : []
-    if (Array.isArray(parsed)) permissionKeys = parsed.filter((key): key is string => typeof key === 'string')
-  } catch {
-    // A malformed permission list must never lock every administrator out;
-    // role-based access (super_admin/admin) still applies.
+      : typeof adminRecord.permission_keys === 'string'
+        ? JSON.parse(adminRecord.permission_keys)
+        : []
+
+    if (Array.isArray(rawKeys)) {
+      permissionKeys = rawKeys.filter((key): key is AdminPermission =>
+        typeof key === 'string' && (ADMIN_PERMISSION_KEYS as readonly string[]).includes(key),
+      )
+    }
+  } catch (err) {
+    console.warn('[admin-auth] Malformed permission_keys for userId:', verifiedSession.userId, err)
     permissionKeys = []
   }
 
-  const adminData = {
+  const adminData: AdminUserContext = {
     user_id: adminRecord.user_id,
-    role: adminRecord.role || 'super_admin',
+    role,
     permission_keys: permissionKeys,
   }
 
   const userData = { id: verifiedSession.userId, email: verifiedSession.email }
-  adminMemoryCache.set(verifiedSession.userId, {
-    user: userData,
-    admin: adminData,
-    timestamp: Date.now(),
-  })
 
   return {
     user: userData,
     admin: adminData,
-    supabase: createSupabaseServiceClient(),
   }
 })
 
-export async function requireAdmin() {
+/**
+ * Requires an authenticated, active admin user.
+ * Returns { user, admin }. Does NOT return supabase client without a permission check.
+ */
+export async function requireAdmin(): Promise<AdminAuthContext> {
   const context = await getAdminContext()
   if (!context) {
     // Unauthenticated access to admin routes returns generic 404
@@ -114,10 +176,17 @@ export async function requireAdmin() {
   return context
 }
 
-export async function requirePermission(permission: AdminPermission) {
+/**
+ * Requires a specific permission key.
+ * Only returns the Supabase service client once permission check passes.
+ */
+export async function requirePermission(permission: AdminPermission): Promise<AdminPermissionContext> {
   const context = await requireAdmin()
   if (!hasAdminPermission(context.admin, permission)) {
     redirect(adminUrl('', { error: 'forbidden' }))
   }
-  return context
+  return {
+    ...context,
+    supabase: createSupabaseServiceClient(),
+  }
 }
