@@ -8,7 +8,37 @@ export type PortalSupabaseClient = Awaited<ReturnType<typeof createSupabaseServe
 export const DEFAULT_SERVICE_ACCOUNT_EMAIL =
   'cyberguardiansociety@gen-lang-client-0696792386.iam.gserviceaccount.com'
 
+/**
+ * On-demand loader that reads .env.local from disk if process.env.GOOGLE_PRIVATE_KEY
+ * was not yet loaded into the running server process (e.g. key added while server was running).
+ */
+function reloadEnvIfMissing(): void {
+  if (process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_PRIVATE_KEY.trim().length > 20) {
+    return
+  }
+  try {
+    const fs = require('fs')
+    const path = require('path')
+    const dotenv = require('dotenv')
+    const envPaths = [
+      path.join(process.cwd(), '.env.local'),
+      path.join(process.cwd(), '.env'),
+    ]
+    for (const envPath of envPaths) {
+      if (fs.existsSync(envPath)) {
+        dotenv.config({ path: envPath, override: true })
+        if (process.env.GOOGLE_PRIVATE_KEY && process.env.GOOGLE_PRIVATE_KEY.trim().length > 20) {
+          break
+        }
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+}
+
 export function googleSheetsConfigured(): boolean {
+  reloadEnvIfMissing()
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
   const key = process.env.GOOGLE_PRIVATE_KEY
   return Boolean(email && key && key.trim().length > 20)
@@ -20,6 +50,7 @@ export function googleSheetsConfigured(): boolean {
  * messages instead of opaque failures.
  */
 export function googleSheetsCredentialError(): string | null {
+  reloadEnvIfMissing()
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
   const privateKey = process.env.GOOGLE_PRIVATE_KEY
   if (!email && !privateKey) {
@@ -37,6 +68,7 @@ export function googleSheetsCredentialError(): string | null {
 type GoogleJwtAuth = InstanceType<typeof google.auth.JWT>
 
 function createGoogleAuth(): GoogleJwtAuth | null {
+  reloadEnvIfMissing()
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || DEFAULT_SERVICE_ACCOUNT_EMAIL
   let rawKey = process.env.GOOGLE_PRIVATE_KEY
   if (!email || !rawKey) return null
