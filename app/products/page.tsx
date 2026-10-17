@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Activity, ArrowRight, CalendarDays, Check, Cloud, Lock, Server, Radar, ShieldCheck, Users, Zap } from 'lucide-react'
+import { Activity, ArrowRight, CalendarDays, Check, Clock3, Cloud, Lock, Server, Radar, ShieldCheck, Users, Zap } from 'lucide-react'
 import Link from 'next/link'
 import { productsPage } from '@/data/site'
 import { MintBanner, SectionLabel } from '@/components/ui/PageChrome'
@@ -7,9 +7,11 @@ import Container from '@/components/ui/Container'
 import ClayButton from '@/components/ui/ClayButton'
 import ManagedContentCards from '@/components/ManagedContentCards'
 import { readPublicManagedContent } from '@/lib/site-content'
+import { getPortalSettings } from '@/lib/portal-settings'
+import FormComingSoon from '@/components/FormComingSoon'
 import { canonicalMetadata } from '@/lib/seo'
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Cybersecurity tools and learning resources',
@@ -47,10 +49,21 @@ const freeResources = [
 
 export default async function ProductsPage() {
   const p = productsPage
-  const [managedProducts, managedResources] = await Promise.all([
+  const [settings, managedProducts, managedResources] = await Promise.all([
+    getPortalSettings(),
     readPublicManagedContent('product'),
     readPublicManagedContent('resource'),
   ])
+
+  if (settings.products_coming_soon) {
+    return (
+      <FormComingSoon
+        title="Products & Tools are coming soon."
+        description="Our suite of defensive security tools, monitoring platforms, and utilities is currently in development. Please check back soon!"
+      />
+    )
+  }
+
   return (
     <>
       <main id="main">
@@ -187,7 +200,24 @@ export default async function ProductsPage() {
               heading="Free Resources"
               sub="Public sessions, learning paths, and information from the Cyber Guardian Society community."
             />
-            {managedResources.length ? (
+            {settings.resources_coming_soon ? (
+              <div className="mt-8 rounded-panel border border-dashed border-mint/40 bg-surface-2 p-8 text-center sm:p-12">
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-mint/10 text-mint">
+                  <Clock3 size={24} />
+                </span>
+                <h3 className="mt-4 font-display text-xl font-semibold tracking-[-0.02em]">
+                  Free Resources Are Coming Soon
+                </h3>
+                <p className="mx-auto mt-2 max-w-[48ch] text-sm leading-6 text-ink-muted">
+                  We are actively curating open-access cybersecurity guides, session archives, and defensive playbooks. Check back soon for community releases!
+                </p>
+                <div className="mt-6">
+                  <ClayButton href="/" variant="secondary">
+                    Back to home
+                  </ClayButton>
+                </div>
+              </div>
+            ) : managedResources.length ? (
               <ManagedContentCards items={managedResources} />
             ) : (
               <ul className="mt-8 grid gap-4 md:grid-cols-3">

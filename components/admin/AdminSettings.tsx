@@ -7,7 +7,7 @@ import TrafficMonitor from '@/components/admin/TrafficMonitor'
 
 const tabs = [
   { id: 'general', label: 'General', icon: Settings2 },
-  { id: 'forms', label: 'Application forms', icon: ClipboardList },
+  { id: 'forms', label: 'Applications & Pages', icon: ClipboardList },
   { id: 'maintenance', label: 'Maintenance mode', icon: Wrench },
   { id: 'security', label: 'Security', icon: ShieldCheck },
   { id: 'danger-zone', label: 'Danger Zone', icon: AlertTriangle },
@@ -96,11 +96,13 @@ export default async function AdminSettings({
       {activeTab === 'forms' ? (
         <div className="settings-panel">
           <div className="settings-panel__heading">
-            <h2>Application availability</h2>
-            <p>Turn either application page into a Coming Soon page. Closed forms also reject direct API submissions.</p>
+            <h2>Applications &amp; Pages availability</h2>
+            <p>Control Coming Soon status for public application forms, products, and resource pages. Closed forms also reject direct API submissions.</p>
           </div>
           <SettingSwitch title="Join CGS application" description="Controls the application form at /join-cgs." settingKey="join_cgs_coming_soon" enabled={settings.join_cgs_coming_soon} />
           <SettingSwitch title="Speaker application" description="Controls the speaker proposal form at /join-as-speaker." settingKey="speaker_coming_soon" enabled={settings.speaker_coming_soon} />
+          <SettingSwitch title="Products page" description="Controls the products page at /products with a Coming Soon notice when enabled." settingKey="products_coming_soon" enabled={settings.products_coming_soon} />
+          <SettingSwitch title="Free resources page" description="Controls the Free Resources library at /products#resources with a Coming Soon notice when enabled." settingKey="resources_coming_soon" enabled={settings.resources_coming_soon} />
         </div>
       ) : null}
 

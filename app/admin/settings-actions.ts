@@ -14,6 +14,8 @@ const settingKeys: PortalSettingKey[] = [
   'attendance_open',
   'join_cgs_coming_soon',
   'speaker_coming_soon',
+  'products_coming_soon',
+  'resources_coming_soon',
   'maintenance_mode',
 ]
 
@@ -27,9 +29,24 @@ function returnToSettings(tab: string, result: { status?: string; error?: string
   revalidatePath('/admin')
   revalidatePath('/join-cgs')
   revalidatePath('/join-as-speaker')
+  revalidatePath('/products')
+  revalidatePath('/resources')
   revalidatePath('/maintenance')
   revalidatePath('/api/attendance')
   redirect(adminUrl('', { view: 'settings', tab, ...result }))
+}
+
+function getSettingsTabForKey(key: string): string {
+  if (key === 'maintenance_mode') return 'maintenance'
+  if (
+    key === 'join_cgs_coming_soon' ||
+    key === 'speaker_coming_soon' ||
+    key === 'products_coming_soon' ||
+    key === 'resources_coming_soon'
+  ) {
+    return 'forms'
+  }
+  return 'general'
 }
 
 export async function changePortalSetting(formData: FormData) {
@@ -37,26 +54,16 @@ export async function changePortalSetting(formData: FormData) {
   const key = formData.get('key')
   const value = formData.get('value')
   if (typeof key !== 'string' || !settingKeys.includes(key as PortalSettingKey) || (value !== 'true' && value !== 'false')) {
-    returnToSettings(key === 'maintenance_mode' ? 'maintenance' : 'general', { error: 'settings-save' })
+    returnToSettings(typeof key === 'string' ? getSettingsTabForKey(key) : 'general', { error: 'settings-save' })
   }
 
   try {
     await savePortalSetting(key as PortalSettingKey, value === 'true')
     await logAudit({ actor_id: user.id, action: 'update', entity: 'portal_setting', entity_id: key, details: { value } })
   } catch {
-    const tab = key === 'maintenance_mode'
-      ? 'maintenance'
-      : key === 'join_cgs_coming_soon' || key === 'speaker_coming_soon'
-        ? 'forms'
-        : 'general'
-    returnToSettings(tab, { error: 'settings-save' })
+    returnToSettings(getSettingsTabForKey(key as string), { error: 'settings-save' })
   }
-  const tab = key === 'maintenance_mode'
-    ? 'maintenance'
-    : key === 'join_cgs_coming_soon' || key === 'speaker_coming_soon'
-      ? 'forms'
-      : 'general'
-  returnToSettings(tab, { status: 'setting-saved' })
+  returnToSettings(getSettingsTabForKey(key as string), { status: 'setting-saved' })
 }
 
 export async function saveMaintenanceMessage(formData: FormData) {

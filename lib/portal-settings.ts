@@ -13,6 +13,8 @@ export const PORTAL_SETTING_DEFAULTS = {
   attendance_open: true,
   join_cgs_coming_soon: false,
   speaker_coming_soon: false,
+  products_coming_soon: false,
+  resources_coming_soon: false,
   maintenance_mode: false,
 } as const
 
@@ -27,28 +29,40 @@ function parseSetting(value: unknown, fallback: boolean): boolean {
 }
 
 async function getStoredPortalSettings(): Promise<Map<string, unknown>> {
-  const supabase = createSupabaseServiceClient()
-  const { data, error } = await supabase.from('cgs_portal_settings').select('key, value')
-  if (error) throw new Error('Portal settings could not be loaded.')
+  try {
+    const supabase = createSupabaseServiceClient()
+    const { data, error } = await supabase.from('cgs_portal_settings').select('key, value')
+    if (error) {
+      console.warn('[portal-settings] Failed to load portal settings from database:', error.message)
+      return new Map<string, unknown>()
+    }
 
-  const stored = new Map<string, unknown>()
-  for (const row of (Array.isArray(data) ? data : [])) {
-    if (typeof row.key === 'string') stored.set(row.key, row.value)
+    const stored = new Map<string, unknown>()
+    for (const row of (Array.isArray(data) ? data : [])) {
+      if (typeof row.key === 'string') stored.set(row.key, row.value)
+    }
+    return stored
+  } catch (err) {
+    console.warn('[portal-settings] Exception reading settings:', err)
+    return new Map<string, unknown>()
   }
-  return stored
 }
 
 export async function getPortalSettings(): Promise<PortalSettings> {
-  const stored = await getStoredPortalSettings()
-  const settings = Object.fromEntries(
-    Object.entries(PORTAL_SETTING_DEFAULTS).map(([key, fallback]) => [
-      key,
-      parseSetting(stored.get(key), fallback),
-    ]),
-  ) as PortalSettings
-  const maintenanceSnapshot = isSupabaseRuntimeConfigured() ? null : readMaintenanceSnapshot()
-  if (maintenanceSnapshot) settings.maintenance_mode = maintenanceSnapshot.enabled
-  return settings
+  try {
+    const stored = await getStoredPortalSettings()
+    const settings = Object.fromEntries(
+      Object.entries(PORTAL_SETTING_DEFAULTS).map(([key, fallback]) => [
+        key,
+        parseSetting(stored.get(key), fallback),
+      ]),
+    ) as PortalSettings
+    const maintenanceSnapshot = isSupabaseRuntimeConfigured() ? null : readMaintenanceSnapshot()
+    if (maintenanceSnapshot) settings.maintenance_mode = maintenanceSnapshot.enabled
+    return settings
+  } catch {
+    return { ...PORTAL_SETTING_DEFAULTS }
+  }
 }
 
 export async function getMaintenanceSettings(): Promise<MaintenanceSettings> {

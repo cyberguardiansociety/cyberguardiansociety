@@ -1,5 +1,15 @@
 import { redirect } from 'next/navigation'
-import { Shield, User, ShieldCheck, ShieldAlert, Crown } from 'lucide-react'
+import {
+  Shield,
+  ShieldCheck,
+  ShieldAlert,
+  Crown,
+  Lock,
+  KeyRound,
+  Fingerprint,
+  Zap,
+  Users,
+} from 'lucide-react'
 import { requirePermission } from '@/lib/admin-auth'
 import { adminUrl } from '@/lib/admin-config'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
@@ -14,6 +24,19 @@ const permissionGroups = [
   { label: 'Website content', items: [['content_announcement', 'Announcements'], ['content_product', 'Products'], ['content_resource', 'Free resources']] },
   { label: 'Operations', items: [['audit', 'Audit log'], ['google_sync', 'Google Sheets sync']] },
 ] as const
+
+const PERMISSION_LABELS: Record<string, { label: string; icon: string }> = {
+  sessions: { label: 'Sessions & Timing', icon: '📅' },
+  speakers: { label: 'Speaker Profiles', icon: '🎙️' },
+  speaker_applications: { label: 'Speaker Applications', icon: '📋' },
+  applications: { label: 'Team Applications', icon: '📝' },
+  inbox: { label: 'Inquiries Inbox', icon: '📨' },
+  content_announcement: { label: 'Announcements CMS', icon: '📢' },
+  content_product: { label: 'Products CMS', icon: '🛡️' },
+  content_resource: { label: 'Free Resources CMS', icon: '📚' },
+  audit: { label: 'Audit Trail', icon: '🔍' },
+  google_sync: { label: 'Google Sheets Sync', icon: '🔄' },
+}
 
 type AdminUser = {
   user_id: string
@@ -34,6 +57,10 @@ export default async function AdminAdministrators() {
   ])
   const profiles = (profileRows ?? []) as AdminUser[]
   const emails = new Map((authUsers?.users ?? []).map((user) => [user.id, user.email ?? 'Email unavailable']))
+
+  const superAdminCount = profiles.filter((p) => p.role === 'super_admin').length
+  const delegatedCount = profiles.filter((p) => p.role !== 'super_admin').length
+  const activeCount = profiles.filter((p) => p.active).length
 
   return (
     <div className="admin-management-layout admin-modern-layout">
@@ -73,72 +100,195 @@ export default async function AdminAdministrators() {
         </form>
       </section>
 
-      <section className="admin-section admin-section--flush admin-modern-list">
-        <div className="admin-section__head">
-          <div className="admin-section__head-icon">
-            <User size={20} />
+      {/* Redesigned Right Column: Access Control & Security Personnel Ledger */}
+      <section className="admin-ops-directory" aria-label="Administrator directory">
+        <div className="admin-ops-header-card">
+          <div className="admin-ops-header-top">
+            <div className="admin-ops-header-title-wrap">
+              <div className="admin-ops-header-icon">
+                <ShieldCheck size={22} />
+              </div>
+              <div>
+                <p className="admin-ops-header-kicker">Role-Based Access Control (RBAC)</p>
+                <h2 className="admin-ops-header-title">
+                  Security Personnel &amp; Operators
+                  <span className="admin-ops-header-badge">{profiles.length} Active</span>
+                </h2>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="admin-kicker">Provisioned access</p>
-            <h2>Administrators <span>{profiles.length}</span></h2>
+          <p className="admin-ops-header-desc">
+            Cryptographically verified operators authorized for governance, operations, and platform management.
+          </p>
+
+          <div className="admin-ops-stat-ribbon">
+            <div className="admin-ops-stat-item">
+              <span className="admin-ops-stat-label">Total Operators</span>
+              <span className="admin-ops-stat-value">
+                <Users size={14} style={{ color: '#60a5fa' }} />
+                {profiles.length}
+              </span>
+            </div>
+            <div className="admin-ops-stat-item">
+              <span className="admin-ops-stat-label">Super Admins</span>
+              <span className="admin-ops-stat-value">
+                <Crown size={14} style={{ color: '#fbbf24' }} />
+                {superAdminCount}
+              </span>
+            </div>
+            <div className="admin-ops-stat-item">
+              <span className="admin-ops-stat-label">Delegated Operators</span>
+              <span className="admin-ops-stat-value">
+                <Shield size={14} style={{ color: '#38bdf8' }} />
+                {delegatedCount}
+              </span>
+            </div>
+            <div className="admin-ops-stat-item">
+              <span className="admin-ops-stat-label">Security Policy</span>
+              <span className="admin-ops-stat-value" style={{ color: '#34d399', fontSize: '13px' }}>
+                <span className="admin-op-pulse-dot" />
+                {activeCount} Active / Zero-Trust
+              </span>
+            </div>
           </div>
         </div>
-        {error ? <p role="alert" className="admin-alert admin-alert--error">Administrator accounts are unavailable.</p> : null}
-        <div className="admin-management-list admin-modern-cards">
-          {profiles.map((profile) => (
-            <article className="admin-managed-admin admin-modern-card" key={profile.user_id} data-active={profile.active}>
-              <div className="admin-card-header">
-                <div className="admin-card-avatar">
-                  {profile.role === 'super_admin' ? <Crown size={18} /> : <ShieldCheck size={18} />}
+
+        {error ? (
+          <p role="alert" className="admin-alert admin-alert--error">
+            Administrator accounts are currently unavailable. Verify Supabase connection.
+          </p>
+        ) : null}
+
+        <div className="admin-management-list">
+          {profiles.map((profile) => {
+            const email = emails.get(profile.user_id) ?? 'Email unavailable'
+            const isSuper = profile.role === 'super_admin'
+            const isCurrentUser = profile.user_id === context.user.id
+            const avatarInitials = (profile.username || email.split('@')[0] || 'AD')
+              .slice(0, 2)
+              .toUpperCase()
+
+            return (
+              <article
+                className={`admin-op-card ${isSuper ? 'admin-op-card--super' : ''} ${!profile.active ? 'admin-op-card--inactive' : ''}`}
+                key={profile.user_id}
+                data-active={profile.active}
+              >
+                <div className="admin-op-card-top">
+                  <span className={`admin-op-role-pill ${isSuper ? 'admin-op-role-pill--super' : 'admin-op-role-pill--delegated'}`}>
+                    {isSuper ? <Crown size={13} /> : <ShieldCheck size={13} />}
+                    {isSuper ? 'Root · Super Admin' : 'Delegated Operator'}
+                  </span>
+
+                  <span className={`admin-op-status-pill ${profile.active ? 'admin-op-status-pill--active' : 'admin-op-status-pill--suspended'}`}>
+                    <span className="admin-op-status-dot" />
+                    {profile.active ? 'Active Operator' : 'Access Suspended'}
+                  </span>
                 </div>
-                <div className="admin-card-info">
-                  <strong>
-                    {profile.username ? `${profile.username} · ` : ''}
-                    {emails.get(profile.user_id) ?? 'Email unavailable'}
-                  </strong>
-                  <div className="admin-card-meta">
-                    <span className="admin-card-role">{profile.role.replaceAll('_', ' ')}</span>
-                    <span className={`admin-card-status ${profile.active ? 'status-active' : 'status-inactive'}`}>
-                      {profile.active ? 'Active' : 'Disabled'}
-                    </span>
+
+                <div className="admin-op-identity">
+                  <div className={`admin-op-avatar ${isSuper ? 'admin-op-avatar--super' : ''}`}>
+                    {isSuper ? <Crown size={22} /> : avatarInitials}
+                  </div>
+
+                  <div className="admin-op-details">
+                    <div className="admin-op-email" title={email}>
+                      {email}
+                    </div>
+                    <div className="admin-op-meta-row">
+                      {profile.username && (
+                        <span className="admin-op-username">@{profile.username}</span>
+                      )}
+                      <span className="admin-op-uid" title={`System UID: ${profile.user_id}`}>
+                        UID: {profile.user_id.slice(0, 8)}...
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="admin-card-body">
-                <p className="admin-card-permissions">
-                  {profile.is_protected
-                    ? 'Protected owner account · credentials cannot be changed or deleted'
-                    : profile.role === 'limited_admin'
-                      ? profile.permission_keys.join(' · ')
-                      : 'Full administrator access'}
-                </p>
-              </div>
-              {!profile.is_protected && profile.user_id !== context.user.id ? (
-                <div className="admin-card-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <form action={setDelegatedAdminActive}>
-                    <input type="hidden" name="userId" value={profile.user_id} />
-                    <input type="hidden" name="active" value={profile.active ? 'false' : 'true'} />
-                    <button
-                      type="submit"
-                      className="admin-secondary-button admin-modern-button-small"
-                      title={profile.active ? 'Temporarily disable administrator login' : 'Restore administrator access'}
-                    >
-                      {profile.active ? <ShieldAlert size={14} /> : <ShieldCheck size={14} />}
-                      {profile.active ? 'Disable' : 'Enable'}
-                    </button>
-                  </form>
 
-                  <AdminDeleteAccountButton
-                    userId={profile.user_id}
-                    adminEmail={emails.get(profile.user_id) ?? 'this administrator'}
-                    action={deleteDelegatedAdmin}
-                  />
+                <div className="admin-op-policy-block">
+                  <div className="admin-op-policy-title">
+                    <KeyRound size={12} />
+                    {isSuper ? 'System Privilege Scope' : `Delegated Capabilities (${profile.permission_keys?.length || 0})`}
+                  </div>
+
+                  {isSuper ? (
+                    <div className="admin-op-root-banner">
+                      <Zap size={16} />
+                      <div>
+                        <strong>Complete Root Authority</strong>
+                        <p style={{ margin: '2px 0 0', color: '#cbd5e1' }}>
+                          Unrestricted governance across attendance, session timing, speaker profiles, CMS content, sheets sync, and access control.
+                        </p>
+                      </div>
+                    </div>
+                  ) : profile.permission_keys && profile.permission_keys.length > 0 ? (
+                    <div className="admin-op-chips-grid">
+                      {profile.permission_keys.map((permKey) => {
+                        const meta = PERMISSION_LABELS[permKey] || {
+                          label: permKey.replaceAll('_', ' '),
+                          icon: '⚡',
+                        }
+                        return (
+                          <span className="admin-op-chip" key={permKey}>
+                            <span className="admin-op-chip-icon">{meta.icon}</span>
+                            <span>{meta.label}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
+                      No specific permission flags granted. Operator cannot access protected workspaces.
+                    </p>
+                  )}
                 </div>
-              ) : null}
-            </article>
-          ))}
+
+                <div className="admin-op-actions-dock">
+                  {profile.is_protected ? (
+                    <span className="admin-op-protected-tag">
+                      <Lock size={12} /> Protected Master Owner · Deletion Prohibited
+                    </span>
+                  ) : isCurrentUser ? (
+                    <span
+                      className="admin-op-protected-tag"
+                      style={{
+                        background: 'rgba(59, 130, 246, 0.12)',
+                        borderColor: 'rgba(59, 130, 246, 0.3)',
+                        color: '#93c5fd',
+                      }}
+                    >
+                      <Fingerprint size={12} /> Current Active Session
+                    </span>
+                  ) : (
+                    <>
+                      <form action={setDelegatedAdminActive}>
+                        <input type="hidden" name="userId" value={profile.user_id} />
+                        <input type="hidden" name="active" value={profile.active ? 'false' : 'true'} />
+                        <button
+                          type="submit"
+                          className={`admin-op-btn-toggle ${profile.active ? 'admin-op-btn-toggle--suspend' : 'admin-op-btn-toggle--restore'}`}
+                          title={profile.active ? 'Temporarily suspend operator access' : 'Restore operator access'}
+                        >
+                          {profile.active ? <ShieldAlert size={13} /> : <ShieldCheck size={13} />}
+                          <span>{profile.active ? 'Suspend Access' : 'Restore Access'}</span>
+                        </button>
+                      </form>
+
+                      <AdminDeleteAccountButton
+                        userId={profile.user_id}
+                        adminEmail={email}
+                        action={deleteDelegatedAdmin}
+                      />
+                    </>
+                  )}
+                </div>
+              </article>
+            )
+          })}
         </div>
       </section>
     </div>
   )
 }
+

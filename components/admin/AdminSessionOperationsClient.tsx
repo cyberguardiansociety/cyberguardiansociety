@@ -1476,8 +1476,6 @@ export function AttendanceManagementClient({
                   <thead>
                     <tr>
                       <th>Participant</th>
-                      <th>Session</th>
-                      <th>Check-in Time</th>
                       <th>Method &amp; Reason</th>
                       <th style={{ textAlign: 'right' }}>Actions</th>
                     </tr>
@@ -1496,17 +1494,8 @@ export function AttendanceManagementClient({
                               </span>
                               <div>
                                 <strong>{person?.name || 'Unknown'}</strong>
-                                <small className="admin-table__subline">{person?.email || '—'}</small>
                               </div>
                             </div>
-                          </td>
-                          <td data-label="Session">
-                            <span className="session-title-tag">
-                              {sessionTitles.get(rec.session_id) || 'Unknown Session'}
-                            </span>
-                          </td>
-                          <td data-label="Check-in Time">
-                            <span className="table-time-text">{displayDate(rec.marked_at)}</span>
                           </td>
                           <td data-label="Method">
                             <span className={`audit-badge ${
