@@ -7,7 +7,7 @@ import { canonicalMetadata } from '@/lib/seo'
 import FormComingSoon from '@/components/FormComingSoon'
 import { getPortalSettings } from '@/lib/portal-settings'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: 'Join as a speaker',

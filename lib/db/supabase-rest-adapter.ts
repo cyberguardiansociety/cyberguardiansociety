@@ -209,7 +209,7 @@ class SupabaseRestQueryBuilder {
         body = JSON.stringify(this.payload)
       }
 
-      const response = await fetch(url, { method, headers, body, cache: 'no-store' })
+      const response = await fetch(url, { method, headers, body, keepalive: true, cache: 'no-store' })
       const raw = response.status === 204 || method === 'HEAD' ? '' : await response.text()
       let result: any = null
       if (raw) {

@@ -6,7 +6,7 @@ import Capabilities from '@/components/home/Capabilities'
 import FinalCta from '@/components/home/FinalCta'
 import { canonicalMetadata } from '@/lib/seo'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 60
 
 export const metadata: Metadata = {
   ...canonicalMetadata('/'),

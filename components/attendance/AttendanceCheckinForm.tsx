@@ -8,11 +8,8 @@ import {
   Check,
   CheckCircle2,
   CircleAlert,
-  Copy,
-  Download,
   LoaderCircle,
   Mail,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
   User,
@@ -79,9 +76,6 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
     }
   }
 
-  function resetCheckin() {
-    setResult(null)
-  }
 
   // ── Success Notification Screen ──────────────────────────────────────────
   if (result?.success) {
@@ -176,34 +170,19 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
           </div>
 
           <div className="attendance-success-actions">
-            {result.certificateId && (
-              <Link
-                className="attendance-action-btn attendance-action-btn--primary"
-                href={`/download-certificate?code=${encodeURIComponent(result.certificateId)}`}
-              >
-                <Download size={15} />
-                <span>Download Certificate (PDF)</span>
-              </Link>
-            )}
-
-            {result.certificateId && (
-              <Link
-                className="attendance-action-btn attendance-action-btn--secondary"
-                href={`/verify-certificate?code=${encodeURIComponent(result.certificateId)}`}
-              >
-                <ShieldCheck size={15} />
-                <span>Verify Authenticity</span>
-              </Link>
-            )}
-
-            <button
-              type="button"
-              onClick={resetCheckin}
-              className="attendance-action-btn attendance-action-btn--ghost"
+            <Link
+              className="attendance-action-btn attendance-action-btn--primary"
+              href="/#sessions"
             >
-              <RefreshCw size={13} />
-              <span>Mark for another attendee</span>
-            </button>
+              <span>Explore Upcoming Sessions</span>
+              <ArrowRight size={14} />
+            </Link>
+            <Link
+              className="attendance-action-btn attendance-action-btn--secondary"
+              href="/"
+            >
+              <span>Back to Home</span>
+            </Link>
           </div>
         </div>
       </div>

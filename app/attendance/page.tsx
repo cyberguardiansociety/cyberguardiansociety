@@ -4,7 +4,7 @@ import Container from '@/components/ui/Container'
 import AttendanceCheckinForm from '@/components/attendance/AttendanceCheckinForm'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 10
 
 export const metadata: Metadata = {
   title: 'Attendance check-in',
@@ -35,7 +35,7 @@ export default async function AttendancePage() {
               Check in. Keep your learning on record.
             </h1>
             <p className="mt-5 max-w-[48ch] text-ink-muted">
-              Use the email you registered with. Once your attendance is confirmed, you can verify and download your certificate.
+              Use the email you registered with. Once your attendance is confirmed, your verified attendance is recorded.
             </p>
             {session ? (
               <div className="attendance-session-card">
@@ -60,7 +60,7 @@ export default async function AttendancePage() {
             <ol className="attendance-steps">
               <li><span>01</span><div><strong>Confirm your details</strong><small>We’ll match your email to the registration.</small></div></li>
               <li><span>02</span><div><strong>Get your record</strong><small>We’ll confirm when your attendance is saved.</small></div></li>
-              <li><span>03</span><div><strong>Keep your certificate</strong><small>Use your reference to verify or download it later.</small></div></li>
+              <li><span>03</span><div><strong>Verified status</strong><small>Your attendance is confirmed and logged in the society ledger.</small></div></li>
             </ol>
           </section>
           <section className="attendance-portal-panel" aria-labelledby="checkin-panel-heading">

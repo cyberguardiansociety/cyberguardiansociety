@@ -8,6 +8,8 @@ export const runtime = 'nodejs'
 const MAX_BODY_BYTES = 4 * 1024
 const TWO_HOURS = 2 * 60 * 60 * 1000
 
+let portalSettingsCache: { portalOpen: boolean; attendanceOpen: boolean; timestamp: number } | null = null
+
 function fail(message: string, status: number, code: string) {
   return NextResponse.json({ success: false, message, code }, { status })
 }
@@ -122,12 +124,22 @@ export async function POST(request: Request) {
     return fail('Attendance is temporarily unavailable.', 503, 'PORTAL_OFFLINE')
   }
 
-  const [{ data: portalSetting }, { data: attendanceSetting }] = await Promise.all([
-    supabase.from('cgs_portal_settings').select('value').eq('key', 'portal_open').maybeSingle(),
-    supabase.from('cgs_portal_settings').select('value').eq('key', 'attendance_open').maybeSingle(),
-  ])
-  if (portalSetting?.value === 'false') return fail('The attendance portal is currently offline.', 503, 'PORTAL_OFFLINE')
-  if (attendanceSetting?.value === 'false') return fail('Attendance check-in is currently closed.', 403, 'ATTENDANCE_CLOSED')
+  let portalOpen = true
+  let attendanceOpen = true
+  if (portalSettingsCache && Date.now() - portalSettingsCache.timestamp < 30000) {
+    portalOpen = portalSettingsCache.portalOpen
+    attendanceOpen = portalSettingsCache.attendanceOpen
+  } else {
+    const [{ data: portalSetting }, { data: attendanceSetting }] = await Promise.all([
+      supabase.from('cgs_portal_settings').select('value').eq('key', 'portal_open').maybeSingle(),
+      supabase.from('cgs_portal_settings').select('value').eq('key', 'attendance_open').maybeSingle(),
+    ])
+    portalOpen = portalSetting?.value !== 'false'
+    attendanceOpen = attendanceSetting?.value !== 'false'
+    portalSettingsCache = { portalOpen, attendanceOpen, timestamp: Date.now() }
+  }
+  if (!portalOpen) return fail('The attendance portal is currently offline.', 503, 'PORTAL_OFFLINE')
+  if (!attendanceOpen) return fail('Attendance check-in is currently closed.', 403, 'ATTENDANCE_CLOSED')
 
   const requestedSessionId = typeof body.sessionId === 'string' && body.sessionId.length <= 36 ? body.sessionId.trim() : null
 

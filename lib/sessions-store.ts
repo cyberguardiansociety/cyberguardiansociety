@@ -89,6 +89,12 @@ function safeHref(href: string) {
   }
 }
 
+let sessionsCache: { data: StoredSession[]; timestamp: number } | null = null
+
+export function invalidateSessionsCache() {
+  sessionsCache = null
+}
+
 /**
  * Load all managed sessions with bidirectional merge:
  * 1. Read local persistent JSON cache
@@ -96,6 +102,11 @@ function safeHref(href: string) {
  * 3. Merge seamlessly so nothing is ever lost
  */
 export const getAllManagedSessions = cache(async function getAllManagedSessions(supabase?: any): Promise<StoredSession[]> {
+  // Fast in-memory cache (15s TTL) for instant navigation & execution
+  if (sessionsCache && Date.now() - sessionsCache.timestamp < 15000) {
+    return sessionsCache.data
+  }
+
   const hostedDatabase = isSupabaseRuntimeConfigured()
   if (hostedDatabase && !supabase) throw new Error('The Supabase session store is unavailable.')
   const localList = hostedDatabase ? [] : readLocalSessions()
@@ -176,6 +187,9 @@ export const getAllManagedSessions = cache(async function getAllManagedSessions(
     (a, b) => new Date(b.starts_at).getTime() - new Date(a.starts_at).getTime()
   )
 
+  // Cache in memory for instant subsequent reads
+  sessionsCache = { data: merged, timestamp: Date.now() }
+
   // Cache back to local file
   if (!hostedDatabase) writeLocalSessions(merged)
   return merged
@@ -189,6 +203,7 @@ export async function saveManagedSession(
   userId: string,
   supabase?: any
 ): Promise<StoredSession> {
+  invalidateSessionsCache()
   const now = new Date().toISOString()
   const id = sessionData.id || crypto.randomUUID()
 
@@ -261,6 +276,7 @@ export async function saveManagedSession(
  * Delete a session across local store and Supabase
  */
 export async function deleteManagedSession(id: string, supabase?: any): Promise<boolean> {
+  invalidateSessionsCache()
   const hostedDatabase = isSupabaseRuntimeConfigured()
   if (hostedDatabase && !supabase) throw new Error('The Supabase session store is unavailable.')
   if (supabase) {

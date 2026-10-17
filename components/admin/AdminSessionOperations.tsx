@@ -64,15 +64,12 @@ export default async function AdminSessionOperations({
 
     const { data: records, error: attErr } = await attQ
     const rIds = [...new Set((records ?? []).map((r) => r.registrant_id as string))]
-    const sIds = [...new Set((records ?? []).map((r) => r.session_id as string))]
-
-    const [{ data: regRows }, { data: sesRows }] = await Promise.all([
-      rIds.length ? supabase.from('cgs_registrants').select('id, name, email').in('id', rIds) : Promise.resolve({ data: [] }),
-      sIds.length ? supabase.from('online_sessions').select('id, title').in('id', sIds) : Promise.resolve({ data: [] }),
-    ])
+    const { data: regRows } = rIds.length
+      ? await supabase.from('cgs_registrants').select('id, name, email').in('id', rIds)
+      : { data: [] }
 
     const people = new Map((regRows ?? []).map((r) => [r.id as string, { name: r.name as string, email: r.email as string }]))
-    const sessionTitles = new Map((sesRows ?? []).map((s) => [s.id as string, s.title as string]))
+    const sessionTitles = new Map(sessions.map((s) => [s.id as string, s.title as string]))
 
     return (
       <div className="admin-session-operations-container">

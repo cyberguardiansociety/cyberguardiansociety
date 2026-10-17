@@ -2,6 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  compress: true,
   images: {
     remotePatterns: [
       ...(process.env.NODE_ENV === 'development'

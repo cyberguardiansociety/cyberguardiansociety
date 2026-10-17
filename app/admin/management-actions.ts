@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createSupabaseServiceClient } from '@/lib/supabase/service'
-import { requirePermission } from '@/lib/admin-auth'
+import { requirePermission, invalidateAdminCache } from '@/lib/admin-auth'
 import { uploadPublicContentImage } from '@/lib/supabase-storage'
 import { hashPassword } from '@/lib/security/password'
 import { adminUrl } from '@/lib/admin-config'
@@ -307,6 +307,7 @@ export async function createDelegatedAdmin(formData: FormData) {
     entity_id: created.user.id,
     details: { role: 'limited_admin', permission_keys: [...new Set(permissions)] },
   })
+  invalidateAdminCache()
   finish('administrators', 'admin-created')
 }
 
@@ -330,6 +331,7 @@ export async function setDelegatedAdminActive(formData: FormData) {
     entity_id: userId,
     details: { active },
   })
+  invalidateAdminCache(userId)
   finish('administrators', 'admin-updated')
 }
 
@@ -372,6 +374,7 @@ export async function deleteDelegatedAdmin(formData: FormData) {
     details: { email: target.email, role: target.role },
   })
 
+  invalidateAdminCache(userId)
   finish('administrators', 'admin-deleted')
 }
 

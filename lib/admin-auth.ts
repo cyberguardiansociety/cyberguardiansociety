@@ -31,11 +31,34 @@ export function hasAdminPermission(
   return admin.role === 'super_admin' || admin.role === 'admin' || Boolean(admin.permission_keys?.includes(permission))
 }
 
+type CachedAdmin = {
+  user: { id: string; email: string }
+  admin: { user_id: string; role: string; permission_keys: string[] }
+  timestamp: number
+}
+
+const adminMemoryCache = new Map<string, CachedAdmin>()
+
+export function invalidateAdminCache(userId?: string) {
+  if (userId) adminMemoryCache.delete(userId)
+  else adminMemoryCache.clear()
+}
+
 export const getAdminContext = cache(async function getAdminContext() {
   // Require the signed application admin session
   const verifiedSession = await getVerifiedAdminSession()
   if (!verifiedSession) {
     return null
+  }
+
+  // Check fast in-memory cache first (60s TTL)
+  const cached = adminMemoryCache.get(verifiedSession.userId)
+  if (cached && Date.now() - cached.timestamp < 60000) {
+    return {
+      user: cached.user,
+      admin: cached.admin,
+      supabase: createSupabaseServiceClient(),
+    }
   }
 
   // Lookup admin user from database
@@ -46,6 +69,7 @@ export const getAdminContext = cache(async function getAdminContext() {
     .maybeSingle()
 
   if (error || !adminRecord || (adminRecord.active !== true && adminRecord.active !== 1)) {
+    adminMemoryCache.delete(verifiedSession.userId)
     return null
   }
 
@@ -67,8 +91,15 @@ export const getAdminContext = cache(async function getAdminContext() {
     permission_keys: permissionKeys,
   }
 
+  const userData = { id: verifiedSession.userId, email: verifiedSession.email }
+  adminMemoryCache.set(verifiedSession.userId, {
+    user: userData,
+    admin: adminData,
+    timestamp: Date.now(),
+  })
+
   return {
-    user: { id: verifiedSession.userId, email: verifiedSession.email },
+    user: userData,
     admin: adminData,
     supabase: createSupabaseServiceClient(),
   }
