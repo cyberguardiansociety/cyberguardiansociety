@@ -28,17 +28,19 @@ function safeUrl(value: string) {
   }
 }
 
-function refreshPortal() {
-  revalidatePath('/')
-  revalidatePath('/admin')
+function refreshPortal(revalidateHome = false) {
+  if (revalidateHome) {
+    try { revalidatePath('/') } catch {}
+  }
+  try { revalidatePath('/admin') } catch {}
 }
 
 function fail(view: string, code: string, message?: string): never {
   redirect(adminUrl('', { view, error: code, error_message: message }))
 }
 
-function done(view: string, status: string): never {
-  refreshPortal()
+function done(view: string, status: string, revalidateHome = false): never {
+  refreshPortal(revalidateHome)
   redirect(adminUrl('', { view, status }))
 }
 

@@ -33,13 +33,11 @@ type SubmissionResult = {
 export default function AttendanceCheckinForm({ sessionId }: { sessionId?: string }) {
   const [pending, setPending] = useState(false)
   const [result, setResult] = useState<SubmissionResult | null>(null)
-  const [copied, setCopied] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
 
   async function submit(formData: FormData) {
     setPending(true)
     setResult(null)
-    setCopied(false)
     try {
       const response = await fetch('/api/attendance', {
         method: 'POST',
@@ -81,16 +79,8 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
     }
   }
 
-  function handleCopyCertificate() {
-    if (!result?.certificateId) return
-    navigator.clipboard.writeText(result.certificateId)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
   function resetCheckin() {
     setResult(null)
-    setCopied(false)
   }
 
   // ── Success Notification Screen ──────────────────────────────────────────
@@ -183,24 +173,6 @@ export default function AttendanceCheckinForm({ sessionId }: { sessionId?: strin
               <span className="attendance-detail-label">Recorded At</span>
               <span className="attendance-detail-val">{formattedDate}</span>
             </div>
-
-            {result.certificateId && (
-              <div className="attendance-detail-cert">
-                <span className="attendance-detail-label">Certificate Reference ID</span>
-                <div className="attendance-cert-code-box">
-                  <code>{result.certificateId}</code>
-                  <button
-                    type="button"
-                    onClick={handleCopyCertificate}
-                    className="attendance-copy-btn"
-                    title="Copy Certificate ID"
-                  >
-                    {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
-                    <span>{copied ? 'Copied' : 'Copy'}</span>
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="attendance-success-actions">

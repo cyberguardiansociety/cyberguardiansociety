@@ -113,6 +113,7 @@ export default function AdminSidebar({
               {showLabels && <p className="admin-nav__label">{group.label}</p>}
               {visibleItems.map(({ id, label, href, icon: Icon }) => {
                 const isSelected = (pendingView ?? activeView) === id
+                const isPending = pendingView === id
                 return (
                   <Link
                     key={id}
@@ -127,9 +128,24 @@ export default function AdminSidebar({
                     title={label}
                     className="admin-nav__link"
                     data-active={isSelected}
+                    style={{ position: 'relative' }}
                   >
                     <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
                     {showLabels && <span className="admin-nav__link-text">{label}</span>}
+                    {isPending && (
+                      <span
+                        style={{
+                          position: 'absolute',
+                          right: showLabels ? '12px' : '6px',
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          background: '#34d399',
+                          boxShadow: '0 0 8px #34d399',
+                          animation: 'pulse 1s infinite',
+                        }}
+                      />
+                    )}
                   </Link>
                 )
               })}
@@ -166,6 +182,21 @@ export default function AdminSidebar({
 
   return (
     <>
+      {pendingView && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '3px',
+            background: 'linear-gradient(90deg, #3b82f6, #10b981, #60a5fa)',
+            zIndex: 999999,
+            boxShadow: '0 0 10px rgba(59, 130, 246, 0.8)',
+          }}
+        />
+      )}
+
       {/* Desktop: icon-only rail that expands on hover */}
       <aside
         className="admin-sidebar admin-sidebar--rail"
@@ -184,19 +215,37 @@ export default function AdminSidebar({
               <div className="admin-nav__group" key={group.label}>
                 <p className="admin-nav__label">{group.label}</p>
                 {visibleItems.map(({ id, label, href, icon: Icon }) => {
-                  const isActive = activeView === id
+                  const isSelected = (pendingView ?? activeView) === id
+                  const isPending = pendingView === id
                   return (
                     <Link
                       key={id}
                       href={href}
                       prefetch={true}
-                      aria-current={isActive ? 'page' : undefined}
+                      scroll={false}
+                      onClick={() => setPendingView(id)}
+                      aria-current={isSelected ? 'page' : undefined}
                       title={label}
                       className="admin-nav__link"
-                      data-active={isActive}
+                      data-active={isSelected}
+                      style={{ position: 'relative' }}
                     >
                       <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
                       <span className="admin-nav__link-text">{label}</span>
+                      {isPending && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: '#34d399',
+                            boxShadow: '0 0 8px #34d399',
+                            animation: 'pulse 1s infinite',
+                          }}
+                        />
+                      )}
                     </Link>
                   )
                 })}

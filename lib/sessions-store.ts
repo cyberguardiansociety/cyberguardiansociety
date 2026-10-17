@@ -1,5 +1,6 @@
 import fs from 'fs'
 import path from 'path'
+import { cache } from 'react'
 import { revalidatePath } from 'next/cache'
 import { onlineSessions, type OnlineSession } from '@/data/site'
 import { isSupabaseRuntimeConfigured } from '@/lib/supabase/config'
@@ -94,7 +95,7 @@ function safeHref(href: string) {
  * 2. Query Supabase online_sessions (base columns that never fail)
  * 3. Merge seamlessly so nothing is ever lost
  */
-export async function getAllManagedSessions(supabase?: any): Promise<StoredSession[]> {
+export const getAllManagedSessions = cache(async function getAllManagedSessions(supabase?: any): Promise<StoredSession[]> {
   const hostedDatabase = isSupabaseRuntimeConfigured()
   if (hostedDatabase && !supabase) throw new Error('The Supabase session store is unavailable.')
   const localList = hostedDatabase ? [] : readLocalSessions()
@@ -178,7 +179,7 @@ export async function getAllManagedSessions(supabase?: any): Promise<StoredSessi
   // Cache back to local file
   if (!hostedDatabase) writeLocalSessions(merged)
   return merged
-}
+})
 
 /**
  * Save or update a session across Supabase and local store

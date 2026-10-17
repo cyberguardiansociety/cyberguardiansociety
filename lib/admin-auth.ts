@@ -1,4 +1,5 @@
 import 'server-only'
+import { cache } from 'react'
 import { redirect, notFound } from 'next/navigation'
 import { adminUrl } from '@/lib/admin-config'
 import { getVerifiedAdminSession } from '@/lib/security/session'
@@ -30,7 +31,7 @@ export function hasAdminPermission(
   return admin.role === 'super_admin' || admin.role === 'admin' || Boolean(admin.permission_keys?.includes(permission))
 }
 
-export async function getAdminContext() {
+export const getAdminContext = cache(async function getAdminContext() {
   // Require the signed application admin session
   const verifiedSession = await getVerifiedAdminSession()
   if (!verifiedSession) {
@@ -71,7 +72,7 @@ export async function getAdminContext() {
     admin: adminData,
     supabase: createSupabaseServiceClient(),
   }
-}
+})
 
 export async function requireAdmin() {
   const context = await getAdminContext()

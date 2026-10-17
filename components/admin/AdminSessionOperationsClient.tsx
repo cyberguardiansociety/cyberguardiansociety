@@ -472,9 +472,11 @@ export function SessionsManagementClient({
 }) {
   const [filter, setFilter] = useState<'all' | 'published' | 'drafts' | 'live' | 'upcoming' | 'completed'>('all')
   const [search, setSearch] = useState('')
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
 
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
+      if (deletedIds.has(s.id)) return false
       if (filter === 'published' && !s.is_published) return false
       if (filter === 'drafts' && s.is_published) return false
       if (filter === 'live' && s.management_status !== 'LIVE') return false
@@ -490,11 +492,11 @@ export function SessionsManagementClient({
       }
       return true
     })
-  }, [sessions, filter, search])
+  }, [sessions, filter, search, deletedIds])
 
-  const publishedCount = sessions.filter((s) => s.is_published).length
-  const draftCount = sessions.filter((s) => !s.is_published).length
-  const liveCount = sessions.filter((s) => s.management_status === 'LIVE').length
+  const publishedCount = sessions.filter((s) => !deletedIds.has(s.id) && s.is_published).length
+  const draftCount = sessions.filter((s) => !deletedIds.has(s.id) && !s.is_published).length
+  const liveCount = sessions.filter((s) => !deletedIds.has(s.id) && s.management_status === 'LIVE').length
 
   return (
     <div className="cms-screen-container">
@@ -711,7 +713,11 @@ export function SessionsManagementClient({
                               <strong>Permanent Deletion</strong>
                               <p>Removing this session will cascade delete all registrations and attendance logs.</p>
                             </div>
-                            <form action={deleteManagedSession} className="session-danger-form">
+                            <form
+                              action={deleteManagedSession}
+                              className="session-danger-form"
+                              onSubmit={() => setDeletedIds((prev) => new Set(prev).add(session.id))}
+                            >
                               <input type="hidden" name="id" value={session.id} />
                               <button
                                 className="admin-danger-button"
@@ -1185,50 +1191,96 @@ export function AttendanceManagementClient({
   q?: string
   error?: boolean
 }) {
-  const manualOverridesCount = records.filter((r) => r.method === 'manual-override').length
-  const portalCheckinsCount = records.filter((r) => r.method === 'portal' || !r.method || r.method === 'qr').length
+  const [filterMethod, setFilterMethod] = useState<'all' | 'portal' | 'manual'>('all')
+  const [searchQuery, setSearchQuery] = useState(q)
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+
+  const manualOverridesCount = records.filter((r) => !deletedIds.has(r.id) && r.method === 'manual-override').length
+  const portalCheckinsCount = records.filter((r) => !deletedIds.has(r.id) && (r.method === 'portal' || !r.method || r.method === 'qr')).length
+  const totalActiveRecords = records.length - deletedIds.size
+
+  const displayedRecords = useMemo(() => {
+    return records.filter((rec) => {
+      if (deletedIds.has(rec.id)) return false
+      if (filterMethod === 'portal' && rec.method !== 'portal') return false
+      if (filterMethod === 'manual' && rec.method !== 'manual-override') return false
+      if (!searchQuery.trim()) return true
+      const term = searchQuery.toLowerCase()
+      const person = people.get(rec.registrant_id)
+      const sessionTitle = sessionTitles.get(rec.session_id)?.toLowerCase() || ''
+      return (
+        (person?.name && person.name.toLowerCase().includes(term)) ||
+        (person?.email && person.email.toLowerCase().includes(term)) ||
+        sessionTitle.includes(term)
+      )
+    })
+  }, [records, deletedIds, filterMethod, searchQuery, people, sessionTitles])
 
   return (
     <div className="attendance-workspace">
-      {/* Top Metric Strip */}
-      <div className="cms-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-        <div className="cms-stat-card">
-          <div className="cms-stat-icon cms-stat-icon--cobalt">
-            <ClipboardCheck size={18} />
+      {/* Redesigned Cyber KPI Stats Bar */}
+      <div className="registrants-cyber-stats-grid">
+        <div className="cyber-kpi-card cyber-kpi-card--cobalt">
+          <div className="cyber-kpi-card__top">
+            <span className="cyber-kpi-badge cyber-kpi-badge--cobalt">Verified Roster</span>
+            <div className="cyber-kpi-icon">
+              <ClipboardCheck size={16} />
+            </div>
           </div>
-          <div className="cms-stat-info">
-            <span className="cms-stat-label">Verified Attendance</span>
-            <strong className="cms-stat-value">{records.length}</strong>
+          <div className="cyber-kpi-card__main">
+            <span className="cyber-kpi-label">Verified Attendance</span>
+            <strong className="cyber-kpi-value">{totalActiveRecords.toLocaleString()}</strong>
           </div>
-        </div>
-
-        <div className="cms-stat-card">
-          <div className="cms-stat-icon cms-stat-icon--green">
-            <CheckCircle2 size={18} />
-          </div>
-          <div className="cms-stat-info">
-            <span className="cms-stat-label">Portal Check-ins</span>
-            <strong className="cms-stat-value">{portalCheckinsCount}</strong>
+          <div className="cyber-kpi-card__footer">
+            <span className="cyber-kpi-subtext">Official authenticated records</span>
           </div>
         </div>
 
-        <div className="cms-stat-card">
-          <div className="cms-stat-icon cms-stat-icon--amber">
-            <ShieldCheck size={18} />
+        <div className="cyber-kpi-card cyber-kpi-card--emerald">
+          <div className="cyber-kpi-card__top">
+            <span className="cyber-kpi-badge cyber-kpi-badge--emerald">Direct Check-in</span>
+            <div className="cyber-kpi-icon">
+              <CheckCircle2 size={16} />
+            </div>
           </div>
-          <div className="cms-stat-info">
-            <span className="cms-stat-label">Manual Overrides</span>
-            <strong className="cms-stat-value">{manualOverridesCount}</strong>
+          <div className="cyber-kpi-card__main">
+            <span className="cyber-kpi-label">Portal Submissions</span>
+            <strong className="cyber-kpi-value">{portalCheckinsCount.toLocaleString()}</strong>
+          </div>
+          <div className="cyber-kpi-card__footer">
+            <span className="cyber-kpi-subtext">Verified through participant portal</span>
           </div>
         </div>
 
-        <div className="cms-stat-card">
-          <div className="cms-stat-icon cms-stat-icon--purple">
-            <CalendarDays size={18} />
+        <div className="cyber-kpi-card cyber-kpi-card--amber">
+          <div className="cyber-kpi-card__top">
+            <span className="cyber-kpi-badge cyber-kpi-badge--amber">Admin Overrides</span>
+            <div className="cyber-kpi-icon">
+              <ShieldCheck size={16} />
+            </div>
           </div>
-          <div className="cms-stat-info">
-            <span className="cms-stat-label">Active Sessions</span>
-            <strong className="cms-stat-value">{sessions.length}</strong>
+          <div className="cyber-kpi-card__main">
+            <span className="cyber-kpi-label">Manual Overrides</span>
+            <strong className="cyber-kpi-value">{manualOverridesCount.toLocaleString()}</strong>
+          </div>
+          <div className="cyber-kpi-card__footer">
+            <span className="cyber-kpi-subtext">Documented administrative entries</span>
+          </div>
+        </div>
+
+        <div className="cyber-kpi-card cyber-kpi-card--purple">
+          <div className="cyber-kpi-card__top">
+            <span className="cyber-kpi-badge cyber-kpi-badge--purple">Cohort Sessions</span>
+            <div className="cyber-kpi-icon">
+              <CalendarDays size={16} />
+            </div>
+          </div>
+          <div className="cyber-kpi-card__main">
+            <span className="cyber-kpi-label">Active Sessions</span>
+            <strong className="cyber-kpi-value">{sessions.length.toLocaleString()}</strong>
+          </div>
+          <div className="cyber-kpi-card__footer">
+            <span className="cyber-kpi-subtext">Sessions currently on schedule</span>
           </div>
         </div>
       </div>
@@ -1312,10 +1364,10 @@ export function AttendanceManagementClient({
         {/* Right Column: Attendance Ledger */}
         <div className="cms-records-col">
           <div className="cms-records-card">
-            <div className="cms-records-card__head">
+            <div className="cms-records-card__head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
               <div className="cms-records-title-wrap">
                 <h3 className="cms-records-title">Attendance Records Ledger</h3>
-                <span className="cms-records-count">{records.length} records</span>
+                <span className="cms-records-count">{displayedRecords.length} displayed</span>
               </div>
 
               <div className="cms-head-actions">
@@ -1330,18 +1382,89 @@ export function AttendanceManagementClient({
               </div>
             </div>
 
-            <form method="get" className="cms-filter-toolbar" style={{ padding: '12px 16px' }}>
-              <input type="hidden" name="view" value="attendance" />
-              <div className="cms-filter-search" style={{ width: '100%' }}>
+            {/* Instant Filter Toolbar & Search */}
+            <div className="cms-filter-toolbar" style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setFilterMethod('all')}
+                  className={`audit-badge ${filterMethod === 'all' ? 'audit-badge--blue' : ''}`}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '4px 11px',
+                    borderRadius: '20px',
+                    border: filterMethod === 'all' ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.1)',
+                    background: filterMethod === 'all' ? 'rgba(59,130,246,0.15)' : 'transparent',
+                    color: filterMethod === 'all' ? '#60a5fa' : 'var(--ink-muted)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  All ({totalActiveRecords})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMethod('portal')}
+                  className={`audit-badge ${filterMethod === 'portal' ? 'audit-badge--green' : ''}`}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '4px 11px',
+                    borderRadius: '20px',
+                    border: filterMethod === 'portal' ? '1px solid #10b981' : '1px solid rgba(255,255,255,0.1)',
+                    background: filterMethod === 'portal' ? 'rgba(16,185,129,0.15)' : 'transparent',
+                    color: filterMethod === 'portal' ? '#34d399' : 'var(--ink-muted)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Portal Check-ins ({portalCheckinsCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMethod('manual')}
+                  className={`audit-badge ${filterMethod === 'manual' ? 'audit-badge--amber' : ''}`}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '4px 11px',
+                    borderRadius: '20px',
+                    border: filterMethod === 'manual' ? '1px solid #f59e0b' : '1px solid rgba(255,255,255,0.1)',
+                    background: filterMethod === 'manual' ? 'rgba(245,158,11,0.15)' : 'transparent',
+                    color: filterMethod === 'manual' ? '#fbbf24' : 'var(--ink-muted)',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  Manual Overrides ({manualOverridesCount})
+                </button>
+              </div>
+
+              <div className="cms-filter-search" style={{ width: '100%', position: 'relative' }}>
                 <Search size={14} className="cms-search-icon" />
                 <input
-                  name="q"
-                  defaultValue={q}
-                  placeholder="Search attendee by name or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Instant filter by participant name, email, or session..."
                   className="cms-search-input"
+                  style={{ paddingRight: searchQuery ? '30px' : '12px' }}
                 />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    style={{
+                      position: 'absolute',
+                      right: '10px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      padding: '4px',
+                    }}
+                  >
+                    <X size={13} />
+                  </button>
+                )}
               </div>
-            </form>
+            </div>
 
             <div className="admin-table-wrap">
               {error ? (
@@ -1360,7 +1483,7 @@ export function AttendanceManagementClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {records.map((rec) => {
+                    {displayedRecords.map((rec) => {
                       const person = people.get(rec.registrant_id)
                       const isManual = rec.method === 'manual-override'
 
@@ -1402,18 +1525,24 @@ export function AttendanceManagementClient({
                             )}
                           </td>
                           <td data-label="Actions" style={{ textAlign: 'right' }}>
-                            <form action={removeManualAttendance} className="cms-inline-del-form">
+                            <form
+                              action={removeManualAttendance}
+                              className="cms-inline-del-form"
+                              onSubmit={(e) => {
+                                const targetName = person?.name || person?.email || 'this attendee'
+                                if (!window.confirm(`Delete attendance record for "${targetName}"?`)) {
+                                  e.preventDefault()
+                                  return
+                                }
+                                // Instant optimistic execution in 0ms:
+                                setDeletedIds((prev) => new Set(prev).add(rec.id))
+                              }}
+                            >
                               <input type="hidden" name="id" value={rec.id} />
                               <button
                                 className="cms-row-delete-btn"
                                 type="submit"
                                 title="Delete attendance record"
-                                onClick={(e) => {
-                                  const targetName = person?.name || person?.email || 'this attendee'
-                                  if (!window.confirm(`Delete attendance record for "${targetName}"?`)) {
-                                    e.preventDefault()
-                                  }
-                                }}
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -1425,13 +1554,19 @@ export function AttendanceManagementClient({
                   </tbody>
                 </table>
               )}
-              {!error && !records.length && (
+              {!error && !displayedRecords.length && (
                 <div className="cms-empty-state">
                   <div className="cms-empty-icon">
                     <ClipboardCheck size={24} />
                   </div>
-                  <h4 className="cms-empty-title">No Attendance Records</h4>
-                  <p className="cms-empty-subtitle">Check-in submissions will populate here in real-time.</p>
+                  <h4 className="cms-empty-title">
+                    {searchQuery || filterMethod !== 'all' ? 'No Matching Records' : 'No Attendance Records'}
+                  </h4>
+                  <p className="cms-empty-subtitle">
+                    {searchQuery || filterMethod !== 'all'
+                      ? 'Try clearing your search query or switching filters.'
+                      : 'Check-in submissions will populate here in real-time.'}
+                  </p>
                 </div>
               )}
             </div>
@@ -1460,7 +1595,10 @@ export function RegistrantsManagementClient({
   q?: string
   error?: boolean
 }) {
-  const conversionRate = count > 0 ? Math.min(100, Math.round((attendanceLen / count) * 100)) : 0
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const visibleRegistrants = useMemo(() => registrants.filter((p) => !deletedIds.has(p.id)), [registrants, deletedIds])
+  const displayCount = Math.max(0, count - deletedIds.size)
+  const conversionRate = displayCount > 0 ? Math.min(100, Math.round((attendanceLen / displayCount) * 100)) : 0
 
   return (
     <div className="registrants-workspace">
@@ -1475,7 +1613,7 @@ export function RegistrantsManagementClient({
           </div>
           <div className="cyber-kpi-card__main">
             <span className="cyber-kpi-label">Total Registered</span>
-            <strong className="cyber-kpi-value">{count.toLocaleString()}</strong>
+            <strong className="cyber-kpi-value">{displayCount.toLocaleString()}</strong>
           </div>
           <div className="cyber-kpi-card__footer">
             <span className="cyber-kpi-subtext">Verified community database</span>
@@ -1491,7 +1629,7 @@ export function RegistrantsManagementClient({
           </div>
           <div className="cyber-kpi-card__main">
             <span className="cyber-kpi-label">Roster in View</span>
-            <strong className="cyber-kpi-value">{registrants.length}</strong>
+            <strong className="cyber-kpi-value">{visibleRegistrants.length}</strong>
           </div>
           <div className="cyber-kpi-card__footer">
             <span className="cyber-kpi-subtext">{q ? `Filtered by "${q}"` : 'Active pagination batch'}</span>
@@ -1535,7 +1673,7 @@ export function RegistrantsManagementClient({
         <div className="cms-records-card__head">
           <div className="cms-records-title-wrap">
             <h3 className="cms-records-title">Registered Participants Directory</h3>
-            <span className="cms-records-count">{count} total members</span>
+            <span className="cms-records-count">{displayCount} total members</span>
           </div>
 
           <div className="cms-head-actions">
@@ -1582,7 +1720,7 @@ export function RegistrantsManagementClient({
                 </tr>
               </thead>
               <tbody>
-                {registrants.map((p) => (
+                {visibleRegistrants.map((p) => (
                   <tr key={p.id}>
                     <td data-label="Participant">
                       <div className="user-profile-cell">
@@ -1609,7 +1747,11 @@ export function RegistrantsManagementClient({
                       <span className="table-time-text">{displayDate(p.created_at)}</span>
                     </td>
                     <td data-label="Actions" style={{ textAlign: 'right' }}>
-                      <form action={deleteRegistrant} className="cms-inline-del-form">
+                      <form
+                        action={deleteRegistrant}
+                        className="cms-inline-del-form"
+                        onSubmit={() => setDeletedIds((prev) => new Set(prev).add(p.id))}
+                      >
                         <input type="hidden" name="id" value={p.id} />
                         <button
                           className="cms-row-delete-btn"
@@ -1630,7 +1772,7 @@ export function RegistrantsManagementClient({
               </tbody>
             </table>
           )}
-          {!error && !registrants.length && (
+          {!error && !visibleRegistrants.length && (
             <div className="cms-empty-state">
               <div className="cms-empty-icon">
                 <Users size={24} />
@@ -1664,6 +1806,9 @@ export function GoogleSyncManagementClient({
   const [copied, setCopied] = useState(false)
   const [search, setSearch] = useState('')
   const [showGuide, setShowGuide] = useState(!connections.length)
+  const [deletedRunIds, setDeletedRunIds] = useState<Set<string>>(new Set())
+  const [allCleared, setAllCleared] = useState(false)
+  const [deletedConnIds, setDeletedConnIds] = useState<Set<string>>(new Set())
 
   function handleCopyEmail() {
     if (!serviceAccountEmail) return
@@ -1690,21 +1835,27 @@ export function GoogleSyncManagementClient({
     return map
   }, [connections])
 
-  const filteredConnections = useMemo(() => {
-    if (!search.trim()) return connections
+  const visibleConnections = useMemo(() => {
+    const activeList = connections.filter((c) => !deletedConnIds.has(c.id))
+    if (!search.trim()) return activeList
     const q = search.toLowerCase()
-    return connections.filter(
+    return activeList.filter(
       (c) =>
         c.name.toLowerCase().includes(q) ||
         c.spreadsheet_id.toLowerCase().includes(q) ||
         c.sheet_name.toLowerCase().includes(q)
     )
-  }, [connections, search])
+  }, [connections, search, deletedConnIds])
 
-  const activeCount = connections.filter((c) => c.is_active).length
-  const totalRuns = syncRuns.length
-  const successfulRuns = syncRuns.filter((r) => r.status === 'success').length
-  const totalRowsSynced = syncRuns.reduce((sum, r) => sum + r.created_count + r.updated_count, 0)
+  const visibleSyncRuns = useMemo(() => {
+    if (allCleared) return []
+    return syncRuns.filter((r) => !deletedRunIds.has(r.id))
+  }, [syncRuns, deletedRunIds, allCleared])
+
+  const activeCount = visibleConnections.filter((c) => c.is_active).length
+  const totalRuns = visibleSyncRuns.length
+  const successfulRuns = visibleSyncRuns.filter((r) => r.status === 'success').length
+  const totalRowsSynced = visibleSyncRuns.reduce((sum, r) => sum + r.created_count + r.updated_count, 0)
 
   return (
     <div className="gsync-redesigned-root">
@@ -1736,7 +1887,7 @@ export function GoogleSyncManagementClient({
           )}
           <span className="gsync-status-chip gsync-status-chip--info">
             <FileSpreadsheet size={13} />
-            <span>{connections.length} Sheet{connections.length !== 1 ? 's' : ''}</span>
+            <span>{visibleConnections.length} Sheet{visibleConnections.length !== 1 ? 's' : ''}</span>
           </span>
         </div>
       </div>
@@ -1748,7 +1899,7 @@ export function GoogleSyncManagementClient({
             <FileSpreadsheet size={18} />
           </div>
           <div className="gsync-metric-data">
-            <span className="gsync-metric-number">{connections.length}</span>
+            <span className="gsync-metric-number">{visibleConnections.length}</span>
             <span className="gsync-metric-label">Connected Sheets</span>
           </div>
           <div className="gsync-metric-footer">
@@ -2044,7 +2195,7 @@ export function GoogleSyncManagementClient({
             )}
 
             {/* Empty State */}
-            {!error && !filteredConnections.length && (
+            {!error && !visibleConnections.length && (
               <div className="gsync-empty-state">
                 <div className="gsync-empty-icon">
                   <FileSpreadsheet size={28} />
@@ -2055,9 +2206,9 @@ export function GoogleSyncManagementClient({
             )}
 
             {/* Connection Cards */}
-            {!error && filteredConnections.length > 0 && (
+            {!error && visibleConnections.length > 0 && (
               <div className="gsync-pipeline-stack">
-                {filteredConnections.map((conn) => {
+                {visibleConnections.map((conn) => {
                   const linkedSession = sessionByConnection.get(conn.id)
                   const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${conn.spreadsheet_id}`
                   const runsForThis = syncRuns.filter((r) => r.connection_id === conn.id)
@@ -2205,7 +2356,11 @@ export function GoogleSyncManagementClient({
                             </button>
                           </form>
 
-                          <form action={deleteGoogleConnection} className="gsync-inline-form">
+                          <form
+                            action={deleteGoogleConnection}
+                            className="gsync-inline-form"
+                            onSubmit={() => setDeletedConnIds((prev) => new Set(prev).add(conn.id))}
+                          >
                             <input type="hidden" name="id" value={conn.id} />
                             <button
                               type="submit"
@@ -2238,12 +2393,16 @@ export function GoogleSyncManagementClient({
             <RefreshCw size={16} className="text-blue-400" />
             <div>
               <h3 className="gsync-audit-title">Synchronization Audit Log</h3>
-              <span className="gsync-audit-count">{syncRuns.length} recent runs</span>
+              <span className="gsync-audit-count">{visibleSyncRuns.length} recent runs</span>
             </div>
           </div>
 
-          {syncRuns.length > 0 && (
-            <form action={clearGoogleSyncHistory} className="gsync-inline-form">
+          {visibleSyncRuns.length > 0 && (
+            <form
+              action={clearGoogleSyncHistory}
+              className="gsync-inline-form"
+              onSubmit={() => setAllCleared(true)}
+            >
               <button
                 type="submit"
                 className="admin-secondary-button"
@@ -2273,7 +2432,7 @@ export function GoogleSyncManagementClient({
         </div>
 
         <div className="admin-table-wrap">
-          {!syncRuns.length ? (
+          {!visibleSyncRuns.length ? (
             <div className="gsync-empty-state" style={{ padding: '32px' }}>
               <div className="gsync-empty-icon">
                 <RefreshCw size={28} />
@@ -2297,7 +2456,7 @@ export function GoogleSyncManagementClient({
                 </tr>
               </thead>
               <tbody>
-                {syncRuns.map((run) => {
+                {visibleSyncRuns.map((run) => {
                   const conn = run.connection_id ? connectionMap.get(run.connection_id) : undefined
                   const isSuccess = run.status === 'success'
                   const isError = run.status === 'error'
@@ -2335,7 +2494,11 @@ export function GoogleSyncManagementClient({
                         )}
                       </td>
                       <td data-label="Actions" style={{ textAlign: 'right' }}>
-                        <form action={deleteGoogleSyncRun} className="cms-inline-del-form">
+                        <form
+                          action={deleteGoogleSyncRun}
+                          className="cms-inline-del-form"
+                          onSubmit={() => setDeletedRunIds((prev) => new Set(prev).add(run.id))}
+                        >
                           <input type="hidden" name="id" value={run.id} />
                           <button
                             className="cms-row-delete-btn"
