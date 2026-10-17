@@ -115,8 +115,9 @@ export async function getManagedContentItems(
 
     if (onlyPublished) query = query.eq('status', 'published')
     const { data, error } = await query
-    if (error) throw new Error('Managed content could not be loaded from the database.')
-    if (Array.isArray(data)) {
+    if (error) {
+      console.warn('[managed-content-store] Failed to load managed content:', error.message || error)
+    } else if (Array.isArray(data)) {
       for (const row of data) map.set(row.id, row as ManagedContentItem)
     }
   }

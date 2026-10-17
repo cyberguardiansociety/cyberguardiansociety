@@ -123,62 +123,66 @@ export const getAllManagedSessions = cache(async function getAllManagedSessions(
         .select('*')
         .order('starts_at', { ascending: false })
 
-      if (dbErr) throw new Error('Managed sessions could not be loaded from the database.')
-      const { data: speakerRows, error: speakerError } = await supabase
-        .from('cgs_session_speakers')
-        .select('session_id, speaker_id')
-      if (speakerError) throw new Error('Session speakers could not be loaded from the database.')
-      const speakersBySession = new Map<string, string[]>()
-      for (const link of Array.isArray(speakerRows) ? speakerRows : []) {
-        if (typeof link.session_id !== 'string' || typeof link.speaker_id !== 'string') continue
-        const ids = speakersBySession.get(link.session_id) ?? []
-        ids.push(link.speaker_id)
-        speakersBySession.set(link.session_id, ids)
-      }
-      if (Array.isArray(dbRows)) {
-        for (const row of dbRows) {
-          const speakerIds = speakersBySession.get(row.id) ?? []
-          const existing = sessionMap.get(row.id)
-          if (existing) {
-            sessionMap.set(row.id, { ...existing, ...row, speakerIds })
-          } else {
-            // New record found in Supabase
-            const slug = (row.title || 'session')
-              .toLowerCase()
-              .trim()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-|-$/g, '')
-            sessionMap.set(row.id, {
-              id: row.id,
-              title: row.title || 'Untitled Session',
-              slug: slug || `session-${row.id.slice(0, 8)}`,
-              description: row.description || '',
-              full_description: row.full_description ?? null,
-              starts_at: row.starts_at || new Date().toISOString(),
-              ends_at: row.ends_at ?? new Date(new Date(row.starts_at).getTime() + 3600000).toISOString(),
-              timezone: row.timezone || 'Asia/Karachi',
-              platform: row.platform || 'Google Meet',
-              href: row.href || '/',
-              status: row.status || 'upcoming',
-              management_status: row.management_status || (row.status === 'current' ? 'LIVE' : 'UPCOMING'),
-              is_active: row.is_active !== false,
-              is_published: Boolean(row.is_published),
-              registration_open: row.registration_open !== false,
-              attendance_open: Boolean(row.attendance_open),
-              attendance_starts_at: row.attendance_starts_at ?? null,
-              attendance_ends_at: row.attendance_ends_at ?? null,
-              session_number: row.session_number ?? null,
-              bootcamp_tag: row.bootcamp_tag || 'cgs-bootcamp-2026',
-              sheet_connection_id: row.sheet_connection_id ?? null,
-              speakerIds,
-              created_at: row.created_at || new Date().toISOString(),
-              updated_at: row.updated_at || new Date().toISOString(),
-            })
+      if (dbErr) {
+        console.warn('[sessions-store] Failed to load managed sessions:', dbErr.message || dbErr)
+      } else {
+        const { data: speakerRows, error: speakerError } = await supabase
+          .from('cgs_session_speakers')
+          .select('session_id, speaker_id')
+        if (speakerError) {
+          console.warn('[sessions-store] Failed to load session speakers:', speakerError.message || speakerError)
+        }
+        const speakersBySession = new Map<string, string[]>()
+        for (const link of Array.isArray(speakerRows) ? speakerRows : []) {
+          if (typeof link.session_id !== 'string' || typeof link.speaker_id !== 'string') continue
+          const ids = speakersBySession.get(link.session_id) ?? []
+          ids.push(link.speaker_id)
+          speakersBySession.set(link.session_id, ids)
+        }
+        if (Array.isArray(dbRows)) {
+          for (const row of dbRows) {
+            const speakerIds = speakersBySession.get(row.id) ?? []
+            const existing = sessionMap.get(row.id)
+            if (existing) {
+              sessionMap.set(row.id, { ...existing, ...row, speakerIds })
+            } else {
+              // New record found in Supabase
+              const slug = (row.title || 'session')
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '')
+              sessionMap.set(row.id, {
+                id: row.id,
+                title: row.title || 'Untitled Session',
+                slug: slug || `session-${row.id.slice(0, 8)}`,
+                description: row.description || '',
+                full_description: row.full_description ?? null,
+                starts_at: row.starts_at || new Date().toISOString(),
+                ends_at: row.ends_at ?? new Date(new Date(row.starts_at).getTime() + 3600000).toISOString(),
+                timezone: row.timezone || 'Asia/Karachi',
+                platform: row.platform || 'Google Meet',
+                href: row.href || '/',
+                status: row.status || 'upcoming',
+                management_status: row.management_status || (row.status === 'current' ? 'LIVE' : 'UPCOMING'),
+                is_active: row.is_active !== false,
+                is_published: Boolean(row.is_published),
+                registration_open: row.registration_open !== false,
+                attendance_open: Boolean(row.attendance_open),
+                attendance_starts_at: row.attendance_starts_at ?? null,
+                attendance_ends_at: row.attendance_ends_at ?? null,
+                session_number: row.session_number ?? null,
+                bootcamp_tag: row.bootcamp_tag || 'cgs-bootcamp-2026',
+                sheet_connection_id: row.sheet_connection_id ?? null,
+                speakerIds,
+                created_at: row.created_at || new Date().toISOString(),
+                updated_at: row.updated_at || new Date().toISOString(),
+              })
+            }
           }
         }
       }
     } catch (e) {
-      if (hostedDatabase) throw e
       console.warn('[sessions-store] Failed to fetch remote Supabase sessions:', e)
     }
   }

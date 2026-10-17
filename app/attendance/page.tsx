@@ -4,7 +4,7 @@ import Container from '@/components/ui/Container'
 import AttendanceCheckinForm from '@/components/attendance/AttendanceCheckinForm'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 
-export const revalidate = 10
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Attendance check-in',
