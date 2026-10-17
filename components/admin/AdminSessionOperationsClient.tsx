@@ -1847,8 +1847,11 @@ export function GoogleSyncManagementClient({
               <div className="gsync-setup-step-card">
                 <div className="gsync-setup-step-badge">2</div>
                 <div className="gsync-setup-step-content">
-                  <strong>Share with Service Account</strong>
-                  <p>Click <strong>Share</strong>, paste the service account email, and grant <strong>Viewer</strong> access.</p>
+                  <strong>Share Spreadsheet</strong>
+                  <p>
+                    <strong>Option A (Instant):</strong> Click <strong>Share</strong> &gt; set General access to <strong>&quot;Anyone with the link can view&quot;</strong>.<br />
+                    <strong>Option B (Private):</strong> Share with the service account email above &amp; add <code>GOOGLE_PRIVATE_KEY</code> to <code>.env.local</code>.
+                  </p>
                 </div>
               </div>
               <div className="gsync-setup-step-card">
@@ -1859,6 +1862,31 @@ export function GoogleSyncManagementClient({
                 </div>
               </div>
             </div>
+
+            {!isConfigured && (
+              <div
+                style={{
+                  margin: '16px 0 0',
+                  padding: '12px 16px',
+                  background: 'rgba(234, 179, 8, 0.08)',
+                  border: '1px solid rgba(234, 179, 8, 0.25)',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  color: '#fef08a',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <ShieldAlert size={16} style={{ color: '#facc15', flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong style={{ color: '#fef08a' }}>Private Key Setup:</strong>
+                    <p style={{ margin: '4px 0 0', color: 'rgba(254, 240, 138, 0.9)' }}>
+                      <code>GOOGLE_PRIVATE_KEY</code> is not yet configured in <code>.env.local</code>. You can sync immediately by setting your Google Sheet sharing to <strong>&quot;Anyone with the link can view&quot;</strong>, or paste the private key from your Google Cloud service-account JSON file into <code>.env.local</code>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

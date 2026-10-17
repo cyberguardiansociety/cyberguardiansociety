@@ -294,6 +294,7 @@ export default async function AdminPage({
   const params = await searchParams
   const requestedView = typeof params.view === 'string' ? params.view : undefined
   const queryError   = typeof params.error === 'string' ? params.error : undefined
+  const queryErrorMessage = typeof params.error_message === 'string' ? params.error_message : undefined
   const status       = typeof params.status === 'string' ? params.status : undefined
   const settingsTab  = typeof params.tab === 'string' ? params.tab : 'general'
   const q            = typeof params.q === 'string' ? params.q : ''
@@ -367,10 +368,12 @@ export default async function AdminPage({
         </header>
 
         {/* ── Alerts ────────────────────────────────────────────────── */}
-        {(queryError || sessionsError || deniedView) ? (
+        {(queryError || queryErrorMessage || sessionsError || deniedView) ? (
           <p role="alert" className="admin-alert admin-alert--error">
             {deniedView
               ? operationErrors.forbidden
+              : queryErrorMessage
+              ? queryErrorMessage
               : queryError
               ? operationErrors[queryError] ?? 'The requested operation could not be completed.'
               : 'Session storage is unavailable. Apply the supplied Supabase migration, then reload.'}

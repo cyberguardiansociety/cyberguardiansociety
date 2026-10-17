@@ -33,8 +33,8 @@ function refreshPortal() {
   revalidatePath('/admin')
 }
 
-function fail(view: string, code: string): never {
-  redirect(adminUrl('', { view, error: code }))
+function fail(view: string, code: string, message?: string): never {
+  redirect(adminUrl('', { view, error: code, error_message: message }))
 }
 
 function done(view: string, status: string): never {
@@ -823,8 +823,9 @@ export async function syncGoogleConnectionNow(formData: FormData) {
   if (typeof id !== 'string' || !SESSION_ID_PATTERN.test(id)) fail('google-sync', 'invalid-connection')
   try {
     await syncGoogleConnection(supabase, id)
-  } catch {
-    fail('google-sync', 'sync-failed')
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Google Sheets synchronization failed.'
+    fail('google-sync', 'sync-failed', message)
   }
 
   try {
