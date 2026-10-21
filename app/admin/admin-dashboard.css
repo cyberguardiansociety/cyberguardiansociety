@@ -413,7 +413,7 @@ body:has(.admin-workspace) > footer { display: none; }
   background: rgba(59,130,246,.06);
 }
 
-/* ── Mobile top bar ───────────────────────────────────────────────────── */
+/* ── Mobile top bar (Hamburger on the RIGHT) ─────────────────────────── */
 .admin-mobile-menu {
   position: sticky;
   z-index: 45;
@@ -421,55 +421,321 @@ body:has(.admin-workspace) > footer { display: none; }
   display: none;
   min-height: 54px;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid var(--adm-edge-strong);
-  background: rgba(12,9,10,.92);
+  background: rgba(12, 9, 10, 0.95);
   backdrop-filter: blur(16px);
-  padding: 8px 14px;
+  padding: 8px 16px;
 }
 
-.admin-drawer-backdrop { position: fixed; z-index: 100; inset: 0; display: flex; }
-.admin-drawer-dismiss { position: absolute; inset: 0; width: 100%; border: 0; background: rgba(12,9,10,.65); backdrop-filter: blur(4px); }
+.admin-mobile-menu__brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.admin-mobile-menu__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.85);
+  display: inline-block;
+}
+
+.admin-mobile-menu__title {
+  color: var(--adm-text);
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.admin-mobile-menu__toggle {
+  margin-left: auto;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--adm-edge-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--adm-text);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.admin-mobile-menu__toggle:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #60a5fa;
+}
+
+/* ── Mobile Drawer Backdrop & Right-side Slide-in ─────────────────────── */
+.admin-drawer-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end; /* Opens from the RIGHT */
+  align-items: stretch;
+}
+
+.admin-drawer-dismiss {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: rgba(5, 5, 8, 0.72);
+  backdrop-filter: blur(5px);
+  cursor: pointer;
+}
 
 .admin-mobile-drawer {
   position: relative;
-  z-index: 1;
+  z-index: 1001;
   display: flex;
-  width: min(300px, 84vw);
+  width: min(320px, 86vw);
   height: 100%;
+  margin-left: auto; /* Aligned to the RIGHT side */
   flex-direction: column;
   overflow-y: auto;
-  border-right: 1px solid var(--adm-edge-strong);
-  background: var(--adm-card);
-  box-shadow: 20px 0 50px rgba(12,9,10,.5);
-  animation: admin-drawer-in 220ms cubic-bezier(.2, .85, .2, 1);
+  -webkit-overflow-scrolling: touch;
+  border-left: 1px solid var(--adm-edge-strong);
+  border-right: none;
+  background: #0f121a;
+  box-shadow: -20px 0 60px rgba(0, 0, 0, 0.85);
+  animation: admin-drawer-slide-right 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Mobile drawer nav: full labels, wider links */
+@keyframes admin-drawer-slide-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ── Drawer Header with Title & Close Button ─────────────────────────── */
+.admin-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--adm-edge-strong);
+  background: rgba(15, 23, 42, 0.6);
+  flex-shrink: 0;
+}
+
+.admin-drawer-title-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--adm-text);
+  letter-spacing: -0.01em;
+}
+
+.admin-drawer-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--adm-edge-strong);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--adm-muted);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.admin-drawer-close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+/* ── Drawer Nav: Full Visible Labels & Text ──────────────────────────── */
 .admin-mobile-drawer .admin-nav {
-  display: grid;
-  flex: 1 1 auto;
-  align-content: start;
-  gap: 4px;
-  padding: 52px 10px 10px;
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  align-content: stretch !important;
+  gap: 4px !important;
+  padding: 14px 12px !important;
+  overflow-y: auto !important;
 }
-.admin-mobile-drawer .admin-nav__group { display: grid; gap: 2px; }
-.admin-mobile-drawer .admin-nav__group + .admin-nav__group { margin-top: 12px; }
-.admin-mobile-drawer .admin-nav__label { display: block; margin: 0 0 5px 10px; color: var(--adm-muted); font-size: 9.5px; font-weight: 800; letter-spacing: .18em; text-transform: uppercase; opacity: .65; }
+
+.admin-mobile-drawer .admin-nav__group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+.admin-mobile-drawer .admin-nav__group + .admin-nav__group {
+  margin-top: 14px !important;
+  padding-top: 12px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+.admin-mobile-drawer .admin-nav__label,
+.admin-mobile-drawer .admin-drawer-group-label {
+  display: block !important;
+  opacity: 0.85 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  margin: 0 0 6px 10px !important;
+  padding: 0 !important;
+  color: #94a3b8 !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+}
+
 .admin-mobile-drawer .admin-nav__link {
-  width: auto;
-  height: auto;
-  min-height: 40px;
-  justify-content: flex-start;
-  gap: 10px;
-  padding: 0 11px;
+  width: 100% !important;
+  height: auto !important;
+  min-height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  padding: 0 12px !important;
+  border: 1px solid transparent !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: #cbd5e1 !important;
+  text-decoration: none !important;
+  transition: all 120ms ease !important;
 }
-.admin-mobile-drawer .admin-nav__link-text { display: inline; }
 
-.admin-drawer-close { position: absolute; top: 12px; right: 12px; z-index: 2; }
+.admin-mobile-drawer .admin-nav__link:hover {
+  background: rgba(59, 130, 246, 0.09) !important;
+  border-color: rgba(59, 130, 246, 0.22) !important;
+  color: #60a5fa !important;
+}
 
-@keyframes admin-drawer-in {
-  from { transform: translateX(-20px); opacity: 0; }
-  to   { transform: translateX(0); opacity: 1; }
+.admin-mobile-drawer .admin-nav__link[data-active="true"] {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: #60a5fa !important;
+}
+
+.admin-mobile-drawer .admin-nav__link svg {
+  flex: 0 0 18px !important;
+  width: 18px !important;
+  height: 18px !important;
+  color: #94a3b8 !important;
+}
+
+.admin-mobile-drawer .admin-nav__link:hover svg {
+  color: #60a5fa !important;
+}
+
+.admin-mobile-drawer .admin-nav__link[data-active="true"] svg {
+  color: #60a5fa !important;
+}
+
+/* Explicitly force link text to be visible and prominent on mobile */
+.admin-mobile-drawer .admin-nav__link-text,
+.admin-mobile-drawer .admin-drawer-link-text {
+  display: inline-block !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  pointer-events: auto !important;
+  white-space: nowrap !important;
+  color: #e2e8f0 !important;
+  font-size: 13.5px !important;
+  font-weight: 580 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.3 !important;
+}
+
+.admin-mobile-drawer .admin-nav__link:hover .admin-nav__link-text,
+.admin-mobile-drawer .admin-nav__link:hover .admin-drawer-link-text {
+  color: #ffffff !important;
+}
+
+.admin-mobile-drawer .admin-nav__link[data-active="true"] .admin-nav__link-text,
+.admin-mobile-drawer .admin-nav__link[data-active="true"] .admin-drawer-link-text {
+  color: #60a5fa !important;
+  font-weight: 700 !important;
+}
+
+/* ── Drawer Bottom Profile & Logout ──────────────────────────────────── */
+.admin-mobile-drawer .admin-sidebar__bottom {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 14px 12px 18px !important;
+  margin-top: auto !important;
+  border-top: 1px solid var(--adm-edge-strong) !important;
+  background: rgba(15, 23, 42, 0.4) !important;
+  flex-shrink: 0 !important;
+}
+
+.admin-mobile-drawer .admin-identity {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.admin-mobile-drawer .admin-identity__text {
+  display: grid !important;
+  opacity: 1 !important;
+  width: auto !important;
+  overflow: visible !important;
+}
+
+.admin-mobile-drawer .admin-identity__text strong {
+  color: #f1f5f9 !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.admin-mobile-drawer .admin-identity__text small {
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  text-transform: capitalize !important;
+}
+
+.admin-mobile-drawer .admin-logout-btn {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px !important;
+  width: 100% !important;
+  padding: 9px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #f87171 !important;
+  cursor: pointer !important;
+  transition: all 120ms ease !important;
+}
+
+.admin-mobile-drawer .admin-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.16) !important;
+  border-color: rgba(239, 68, 68, 0.4) !important;
+}
+
+.admin-mobile-drawer .admin-logout-btn .admin-logout-label {
+  display: inline-block !important;
+  opacity: 1 !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #f87171 !important;
 }
 
 /* ── Main content — sits right of the 62px rail ─────────────────────── */

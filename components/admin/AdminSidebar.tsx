@@ -113,7 +113,7 @@ export default function AdminSidebar({
           if (!visibleItems.length) return null
           return (
             <div className="admin-nav__group" key={group.label}>
-              {showLabels && <p className="admin-nav__label">{group.label}</p>}
+              {showLabels && <p className="admin-nav__label admin-drawer-group-label">{group.label}</p>}
               {visibleItems.map(({ id, label, href, icon: Icon }) => {
                 const isSelected = (pendingView ?? activeView) === id
                 const isPending = pendingView === id
@@ -134,7 +134,7 @@ export default function AdminSidebar({
                     style={{ position: 'relative' }}
                   >
                     <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
-                    {showLabels && <span className="admin-nav__link-text">{label}</span>}
+                    {showLabels && <span className="admin-nav__link-text admin-drawer-link-text">{label}</span>}
                     {isPending && (
                       <span
                         style={{
@@ -275,10 +275,14 @@ export default function AdminSidebar({
         </div>
       </aside>
 
-      {/* Mobile hamburger */}
+      {/* Mobile top bar with hamburger on the RIGHT */}
       <header className="admin-mobile-menu">
+        <div className="admin-mobile-menu__brand">
+          <span className="admin-mobile-menu__dot" />
+          <span className="admin-mobile-menu__title">CGS Admin</span>
+        </div>
         <button
-          className="admin-icon-action"
+          className="admin-icon-action admin-mobile-menu__toggle"
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open admin navigation"
@@ -287,7 +291,7 @@ export default function AdminSidebar({
         </button>
       </header>
 
-      {/* Mobile drawer — full labels */}
+      {/* Mobile drawer — full labels, opening from the RIGHT */}
       {mobileOpen ? (
         <div className="admin-drawer-backdrop">
           <button
@@ -297,14 +301,20 @@ export default function AdminSidebar({
             onClick={() => setMobileOpen(false)}
           />
           <aside className="admin-mobile-drawer" aria-label="Admin navigation">
-            <button
-              className="admin-icon-action admin-drawer-close"
-              type="button"
-              onClick={() => setMobileOpen(false)}
-              aria-label="Close admin navigation"
-            >
-              <X size={18} />
-            </button>
+            <div className="admin-drawer-header">
+              <div className="admin-drawer-title-box">
+                <span className="admin-mobile-menu__dot" />
+                <strong>CGS Operations</strong>
+              </div>
+              <button
+                className="admin-icon-action admin-drawer-close"
+                type="button"
+                onClick={() => setMobileOpen(false)}
+                aria-label="Close admin navigation"
+              >
+                <X size={18} />
+              </button>
+            </div>
             {navigation(() => setMobileOpen(false), true)}
             {bottomActions(true)}
           </aside>
