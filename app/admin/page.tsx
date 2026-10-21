@@ -14,6 +14,9 @@ import AdminAuditLog, { type AuditLogEntry } from '@/components/admin/AdminAudit
 import AdminCertificateLogs from '@/components/admin/AdminCertificateLogs'
 import AdminSettings from '@/components/admin/AdminSettings'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type SessionOperationsView = 'sessions' | 'time-management' | 'attendance' | 'registrants' | 'google-sync'
 const sessionViews = new Set<string>(['sessions', 'time-management', 'attendance', 'registrants', 'google-sync'])
 
