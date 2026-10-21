@@ -20,6 +20,7 @@ import {
   UserCog,
   Users,
   Settings,
+  ShieldCheck,
   X,
 } from 'lucide-react'
 import { signOut } from '@/app/admin/actions'
@@ -37,6 +38,7 @@ const viewPermission: Record<string, string> = {
   'time-management': 'sessions',
   attendance: 'sessions',
   registrants: 'sessions',
+  'certificate-logs': 'sessions',
   'google-sync': 'google_sync',
   administrators: 'admins',
 }
@@ -55,11 +57,12 @@ const groups = [
   {
     label: 'Sessions & Operations',
     items: [
-      { id: 'sessions',        label: 'Online sessions', href: '?view=sessions',        icon: CalendarDays },
-      { id: 'time-management', label: 'Time management', href: '?view=time-management', icon: CalendarClock },
-      { id: 'attendance',      label: 'Attendance',      href: '?view=attendance',      icon: ClipboardCheck },
-      { id: 'registrants',     label: 'Registrants',     href: '?view=registrants',     icon: Users },
-      { id: 'google-sync',     label: 'Google sync',     href: '?view=google-sync',     icon: RefreshCw },
+      { id: 'sessions',         label: 'Online sessions',  href: '?view=sessions',         icon: CalendarDays },
+      { id: 'time-management',  label: 'Time management',  href: '?view=time-management',  icon: CalendarClock },
+      { id: 'attendance',       label: 'Attendance',       href: '?view=attendance',       icon: ClipboardCheck },
+      { id: 'registrants',      label: 'Registrants',      href: '?view=registrants',      icon: Users },
+      { id: 'certificate-logs', label: 'Verification logs',href: '?view=certificate-logs', icon: ShieldCheck },
+      { id: 'google-sync',      label: 'Google sync',      href: '?view=google-sync',      icon: RefreshCw },
     ],
   },
   {

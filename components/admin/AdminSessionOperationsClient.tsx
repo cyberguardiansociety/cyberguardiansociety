@@ -33,6 +33,7 @@ import {
 import { motion, useReducedMotion } from 'motion/react'
 import { utcToZonedLocalInput } from '@/lib/timezone'
 import AdminCombobox from '@/components/admin/AdminCombobox'
+import HighSecurityDeleteModal from '@/components/admin/HighSecurityDeleteModal'
 import {
   createManagedSession,
   updateManagedSession,
@@ -43,6 +44,7 @@ import {
   markAttendanceOverride,
   removeManualAttendance,
   deleteRegistrant,
+  deleteAllRegistrants,
   createGoogleConnection,
   updateGoogleConnection,
   setGoogleConnectionActive,
@@ -473,6 +475,7 @@ export function SessionsManagementClient({
   const [filter, setFilter] = useState<'all' | 'published' | 'drafts' | 'live' | 'upcoming' | 'completed'>('all')
   const [search, setSearch] = useState('')
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [sessionDeleteTarget, setSessionDeleteTarget] = useState<{ id: string; title: string } | null>(null)
 
   const filteredSessions = useMemo(() => {
     return sessions.filter((s) => {
@@ -713,20 +716,14 @@ export function SessionsManagementClient({
                               <strong>Permanent Deletion</strong>
                               <p>Removing this session will cascade delete all registrations and attendance logs.</p>
                             </div>
-                            <form
-                              action={deleteManagedSession}
-                              className="session-danger-form"
-                              onSubmit={() => setDeletedIds((prev) => new Set(prev).add(session.id))}
+                            <button
+                              className="admin-danger-button"
+                              type="button"
+                              onClick={() => setSessionDeleteTarget({ id: session.id, title: session.title })}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                             >
-                              <input type="hidden" name="id" value={session.id} />
-                              <button
-                                className="admin-danger-button"
-                                type="submit"
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                              >
-                                <Trash2 size={13} /> Delete Session
-                              </button>
-                            </form>
+                              <Trash2 size={13} /> Delete Session
+                            </button>
                           </div>
                         </div>
                       </AccordionCard>
@@ -748,6 +745,25 @@ export function SessionsManagementClient({
           </div>
         </div>
       </div>
+
+      <HighSecurityDeleteModal
+        isOpen={Boolean(sessionDeleteTarget)}
+        onClose={() => setSessionDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!sessionDeleteTarget) return
+          const id = sessionDeleteTarget.id
+          setDeletedIds((prev) => new Set(prev).add(id))
+          setSessionDeleteTarget(null)
+          const formData = new FormData()
+          formData.set('id', id)
+          formData.set('confirmation', 'DELETE SESSION')
+          await deleteManagedSession(formData)
+        }}
+        title="Delete Online Session"
+        itemName={sessionDeleteTarget?.title || 'Selected Session'}
+        description="Permanently delete this session, its schedule, and all associated registration records."
+        confirmationPhrase="DELETE SESSION"
+      />
     </div>
   )
 }
@@ -1194,6 +1210,7 @@ export function AttendanceManagementClient({
   const [filterMethod, setFilterMethod] = useState<'all' | 'portal' | 'manual'>('all')
   const [searchQuery, setSearchQuery] = useState(q)
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
+  const [deleteAttendanceTarget, setDeleteAttendanceTarget] = useState<{ id: string; name: string } | null>(null)
 
   const manualOverridesCount = records.filter((r) => !deletedIds.has(r.id) && r.method === 'manual-override').length
   const portalCheckinsCount = records.filter((r) => !deletedIds.has(r.id) && (r.method === 'portal' || !r.method || r.method === 'qr')).length
@@ -1514,28 +1531,17 @@ export function AttendanceManagementClient({
                             )}
                           </td>
                           <td data-label="Actions" style={{ textAlign: 'right' }}>
-                            <form
-                              action={removeManualAttendance}
-                              className="cms-inline-del-form"
-                              onSubmit={(e) => {
+                            <button
+                              className="cms-row-delete-btn"
+                              type="button"
+                              title="Delete attendance record"
+                              onClick={() => {
                                 const targetName = person?.name || person?.email || 'this attendee'
-                                if (!window.confirm(`Delete attendance record for "${targetName}"?`)) {
-                                  e.preventDefault()
-                                  return
-                                }
-                                // Instant optimistic execution in 0ms:
-                                setDeletedIds((prev) => new Set(prev).add(rec.id))
+                                setDeleteAttendanceTarget({ id: rec.id, name: targetName })
                               }}
                             >
-                              <input type="hidden" name="id" value={rec.id} />
-                              <button
-                                className="cms-row-delete-btn"
-                                type="submit"
-                                title="Delete attendance record"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </form>
+                              <Trash2 size={13} />
+                            </button>
                           </td>
                         </tr>
                       )
@@ -1562,6 +1568,25 @@ export function AttendanceManagementClient({
           </div>
         </div>
       </div>
+
+      <HighSecurityDeleteModal
+        isOpen={Boolean(deleteAttendanceTarget)}
+        onClose={() => setDeleteAttendanceTarget(null)}
+        onConfirm={async () => {
+          if (!deleteAttendanceTarget) return
+          const id = deleteAttendanceTarget.id
+          setDeletedIds((prev) => new Set(prev).add(id))
+          setDeleteAttendanceTarget(null)
+          const formData = new FormData()
+          formData.set('id', id)
+          formData.set('confirmation', 'DELETE')
+          await removeManualAttendance(formData)
+        }}
+        title="Delete Attendance Record"
+        itemName={`Attendee: ${deleteAttendanceTarget?.name || 'Selected Record'}`}
+        description="Permanently remove this attendance check-in record."
+        confirmationPhrase="DELETE"
+      />
     </div>
   )
 }
@@ -1585,8 +1610,14 @@ export function RegistrantsManagementClient({
   error?: boolean
 }) {
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set())
-  const visibleRegistrants = useMemo(() => registrants.filter((p) => !deletedIds.has(p.id)), [registrants, deletedIds])
-  const displayCount = Math.max(0, count - deletedIds.size)
+  const [singleDeleteTarget, setSingleDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [clearAllModalOpen, setClearAllModalOpen] = useState(false)
+  const [allCleared, setAllCleared] = useState(false)
+  const visibleRegistrants = useMemo(() => {
+    if (allCleared) return []
+    return registrants.filter((p) => !deletedIds.has(p.id))
+  }, [registrants, deletedIds, allCleared])
+  const displayCount = allCleared ? 0 : Math.max(0, count - deletedIds.size)
   const conversionRate = displayCount > 0 ? Math.min(100, Math.round((attendanceLen / displayCount) * 100)) : 0
 
   return (
@@ -1665,7 +1696,7 @@ export function RegistrantsManagementClient({
             <span className="cms-records-count">{displayCount} total members</span>
           </div>
 
-          <div className="cms-head-actions">
+          <div className="cms-head-actions" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
             <a
               className="admin-secondary-button"
               href="/api/admin/operations-export?type=registrants"
@@ -1674,6 +1705,16 @@ export function RegistrantsManagementClient({
             >
               <Download size={13} /> Export CSV
             </a>
+            <button
+              type="button"
+              className="admin-danger-button"
+              onClick={() => setClearAllModalOpen(true)}
+              disabled={displayCount === 0 || allCleared}
+              style={{ fontSize: '12px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              title="Delete all registrants with security verification"
+            >
+              <Trash2 size={13} /> Delete All Registrants
+            </button>
           </div>
         </div>
 
@@ -1736,25 +1777,14 @@ export function RegistrantsManagementClient({
                       <span className="table-time-text">{displayDate(p.created_at)}</span>
                     </td>
                     <td data-label="Actions" style={{ textAlign: 'right' }}>
-                      <form
-                        action={deleteRegistrant}
-                        className="cms-inline-del-form"
-                        onSubmit={() => setDeletedIds((prev) => new Set(prev).add(p.id))}
+                      <button
+                        className="cms-row-delete-btn"
+                        type="button"
+                        title="Delete participant"
+                        onClick={() => setSingleDeleteTarget({ id: p.id, name: p.name || p.email })}
                       >
-                        <input type="hidden" name="id" value={p.id} />
-                        <button
-                          className="cms-row-delete-btn"
-                          type="submit"
-                          title="Delete participant"
-                          onClick={(e) => {
-                            if (!window.confirm(`Delete registrant "${p.name || p.email}"?`)) {
-                              e.preventDefault()
-                            }
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </form>
+                        <Trash2 size={13} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1772,6 +1802,43 @@ export function RegistrantsManagementClient({
           )}
         </div>
       </div>
+
+      {/* Delete All Registrants Modal */}
+      <HighSecurityDeleteModal
+        isOpen={clearAllModalOpen}
+        onClose={() => setClearAllModalOpen(false)}
+        onConfirm={async () => {
+          setAllCleared(true)
+          setClearAllModalOpen(false)
+          const formData = new FormData()
+          formData.set('confirmation', 'DELETE ALL REGISTRANTS')
+          await deleteAllRegistrants(formData)
+        }}
+        title="Delete All Registrant Records"
+        itemName={`All ${displayCount} registered participants`}
+        description="DANGER: This action cannot be reversed! It will erase all participant profiles, booked sessions, and attendance records from the society database."
+        confirmationPhrase="DELETE ALL REGISTRANTS"
+      />
+
+      {/* Single Registrant Delete Modal */}
+      <HighSecurityDeleteModal
+        isOpen={Boolean(singleDeleteTarget)}
+        onClose={() => setSingleDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!singleDeleteTarget) return
+          const id = singleDeleteTarget.id
+          setDeletedIds((prev) => new Set(prev).add(id))
+          setSingleDeleteTarget(null)
+          const formData = new FormData()
+          formData.set('id', id)
+          formData.set('confirmation', 'DELETE')
+          await deleteRegistrant(formData)
+        }}
+        title="Delete Participant Record"
+        itemName={singleDeleteTarget?.name || 'Selected Participant'}
+        description="Permanently remove this participant and all associated session booking records."
+        confirmationPhrase="DELETE"
+      />
     </div>
   )
 }
@@ -1798,6 +1865,9 @@ export function GoogleSyncManagementClient({
   const [deletedRunIds, setDeletedRunIds] = useState<Set<string>>(new Set())
   const [allCleared, setAllCleared] = useState(false)
   const [deletedConnIds, setDeletedConnIds] = useState<Set<string>>(new Set())
+  const [deleteConnTarget, setDeleteConnTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleteRunTarget, setDeleteRunTarget] = useState<string | null>(null)
+  const [clearHistoryModalOpen, setClearHistoryModalOpen] = useState(false)
 
   function handleCopyEmail() {
     if (!serviceAccountEmail) return
@@ -2345,25 +2415,14 @@ export function GoogleSyncManagementClient({
                             </button>
                           </form>
 
-                          <form
-                            action={deleteGoogleConnection}
-                            className="gsync-inline-form"
-                            onSubmit={() => setDeletedConnIds((prev) => new Set(prev).add(conn.id))}
+                          <button
+                            type="button"
+                            className="gsync-action-btn gsync-action-btn--delete"
+                            title="Delete connection"
+                            onClick={() => setDeleteConnTarget({ id: conn.id, name: conn.name })}
                           >
-                            <input type="hidden" name="id" value={conn.id} />
-                            <button
-                              type="submit"
-                              className="gsync-action-btn gsync-action-btn--delete"
-                              title="Delete connection"
-                              onClick={(e) => {
-                                if (!window.confirm(`Delete Google Sheet connection "${conn.name}"? Previously synced participants will not be deleted.`)) {
-                                  e.preventDefault()
-                                }
-                              }}
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </form>
+                            <Trash2 size={12} />
+                          </button>
                         </div>
                       </AccordionCard>
                     </div>
@@ -2387,36 +2446,26 @@ export function GoogleSyncManagementClient({
           </div>
 
           {visibleSyncRuns.length > 0 && (
-            <form
-              action={clearGoogleSyncHistory}
-              className="gsync-inline-form"
-              onSubmit={() => setAllCleared(true)}
+            <button
+              type="button"
+              className="admin-secondary-button"
+              style={{
+                fontSize: '12px',
+                padding: '5px 12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                color: '#f87171',
+                borderColor: 'rgba(239, 68, 68, 0.3)',
+                cursor: 'pointer',
+                borderRadius: '6px',
+              }}
+              onClick={() => setClearHistoryModalOpen(true)}
+              title="Clear all synchronization log entries"
             >
-              <button
-                type="submit"
-                className="admin-secondary-button"
-                style={{
-                  fontSize: '12px',
-                  padding: '5px 12px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  color: '#f87171',
-                  borderColor: 'rgba(239, 68, 68, 0.3)',
-                  cursor: 'pointer',
-                  borderRadius: '6px',
-                }}
-                onClick={(e) => {
-                  if (!window.confirm('Delete all synchronization audit log history? This will clear all recorded sync run entries.')) {
-                    e.preventDefault()
-                  }
-                }}
-                title="Clear all synchronization log entries"
-              >
-                <Trash2 size={13} />
-                <span>Clear Audit Log</span>
-              </button>
-            </form>
+              <Trash2 size={13} />
+              <span>Clear Audit Log</span>
+            </button>
           )}
         </div>
 
@@ -2483,25 +2532,14 @@ export function GoogleSyncManagementClient({
                         )}
                       </td>
                       <td data-label="Actions" style={{ textAlign: 'right' }}>
-                        <form
-                          action={deleteGoogleSyncRun}
-                          className="cms-inline-del-form"
-                          onSubmit={() => setDeletedRunIds((prev) => new Set(prev).add(run.id))}
+                        <button
+                          className="cms-row-delete-btn"
+                          type="button"
+                          title="Delete this sync log entry"
+                          onClick={() => setDeleteRunTarget(run.id)}
                         >
-                          <input type="hidden" name="id" value={run.id} />
-                          <button
-                            className="cms-row-delete-btn"
-                            type="submit"
-                            title="Delete this sync log entry"
-                            onClick={(e) => {
-                              if (!window.confirm('Delete this sync run log entry?')) {
-                                e.preventDefault()
-                              }
-                            }}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        </form>
+                          <Trash2 size={13} />
+                        </button>
                       </td>
                     </tr>
                   )
@@ -2511,6 +2549,61 @@ export function GoogleSyncManagementClient({
           )}
         </div>
       </div>
+
+      {/* High Security Modal: Delete Connection */}
+      <HighSecurityDeleteModal
+        isOpen={Boolean(deleteConnTarget)}
+        onClose={() => setDeleteConnTarget(null)}
+        onConfirm={async () => {
+          if (!deleteConnTarget) return
+          const id = deleteConnTarget.id
+          setDeletedConnIds((prev) => new Set(prev).add(id))
+          setDeleteConnTarget(null)
+          const formData = new FormData()
+          formData.set('id', id)
+          formData.set('confirmation', 'DELETE')
+          await deleteGoogleConnection(formData)
+        }}
+        title="Delete Google Sheet Connection"
+        itemName={deleteConnTarget?.name || 'Selected Connection'}
+        description="Permanently remove this connection. Previously synced participants will remain in the database."
+        confirmationPhrase="DELETE"
+      />
+
+      {/* High Security Modal: Clear All Sync Logs */}
+      <HighSecurityDeleteModal
+        isOpen={clearHistoryModalOpen}
+        onClose={() => setClearHistoryModalOpen(false)}
+        onConfirm={async () => {
+          setAllCleared(true)
+          setClearHistoryModalOpen(false)
+          await clearGoogleSyncHistory()
+        }}
+        title="Clear All Synchronization Logs"
+        itemName="All Google Sync Audit Runs"
+        description="Permanently clear all historical sync execution records."
+        confirmationPhrase="DELETE ALL"
+      />
+
+      {/* High Security Modal: Delete Single Sync Run */}
+      <HighSecurityDeleteModal
+        isOpen={Boolean(deleteRunTarget)}
+        onClose={() => setDeleteRunTarget(null)}
+        onConfirm={async () => {
+          if (!deleteRunTarget) return
+          const id = deleteRunTarget
+          setDeletedRunIds((prev) => new Set(prev).add(id))
+          setDeleteRunTarget(null)
+          const formData = new FormData()
+          formData.set('id', id)
+          formData.set('confirmation', 'DELETE')
+          await deleteGoogleSyncRun(formData)
+        }}
+        title="Delete Sync Run Entry"
+        itemName="Synchronization Audit Entry"
+        description="Permanently remove this sync run log entry."
+        confirmationPhrase="DELETE"
+      />
     </div>
   )
 }

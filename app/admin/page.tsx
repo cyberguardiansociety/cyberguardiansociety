@@ -11,6 +11,7 @@ import AdminManagedContent from '@/components/admin/AdminManagedContent'
 import AdminAdministrators from '@/components/admin/AdminAdministrators'
 import AdminSpeakerApplications from '@/components/admin/AdminSpeakerApplications'
 import AdminAuditLog, { type AuditLogEntry } from '@/components/admin/AdminAuditLog'
+import AdminCertificateLogs from '@/components/admin/AdminCertificateLogs'
 import AdminSettings from '@/components/admin/AdminSettings'
 
 type SessionOperationsView = 'sessions' | 'time-management' | 'attendance' | 'registrants' | 'google-sync'
@@ -105,6 +106,9 @@ const operationStatuses: Record<string, string> = {
   'maintenance-message-saved': 'Maintenance notice updated.',
   'audit-logs-cleared': 'All audit logs were deleted.',
   'traffic-logs-cleared': 'All traffic logs and threat alerts have been cleared.',
+  'all-registrants-deleted': 'All registrants and associated bookings were permanently removed.',
+  'certificate-logs-cleared': 'All certificate verification logs were permanently cleared.',
+  'certificate-log-deleted': 'Certificate verification log entry removed.',
 }
 
 type SessionRow = {
@@ -145,6 +149,10 @@ const views = {
   registrants: {
     title: 'Registrants',
     description: 'Search participant records and review session bookings and attendance.',
+  },
+  'certificate-logs': {
+    title: 'Certificate Verification Logs',
+    description: 'Real-time security and audit logs of all participant certificate verification attempts.',
   },
   'google-sync': {
     title: 'Google Sheets sync',
@@ -197,6 +205,7 @@ const viewPermissions: Partial<Record<keyof typeof views, AdminPermission>> = {
   'time-management': 'sessions',
   attendance: 'sessions',
   registrants: 'sessions',
+  'certificate-logs': 'sessions',
   'google-sync': 'google_sync',
   applications: 'applications',
   inbox: 'inbox',
@@ -347,6 +356,14 @@ export default async function AdminPage({
     activity = (activityData ?? []) as AuditLogEntry[]
   }
 
+  let certificateLogs: any[] = []
+  let certificateStats = { total: 0, success: 0, failed: 0, successRate: 0 }
+  if (activeView === 'certificate-logs') {
+    const { getCertificateLogs, getCertificateLogsStats } = await import('@/lib/certificate-logs-store')
+    certificateLogs = await getCertificateLogs({ query: q, status: filter })
+    certificateStats = await getCertificateLogsStats()
+  }
+
   const upcomingCount = sessions.filter((s) => s.status === 'upcoming').length
   const publishedCount = sessions.filter((s) => s.is_published).length
   const page          = views[activeView]
@@ -482,6 +499,16 @@ export default async function AdminPage({
             initialEntries={activity}
             currentAdminEmail={user.email ?? undefined}
             canClearAuditLogs={admin.role === 'super_admin' || hasAdminPermission(admin, 'audit')}
+          />
+        ) : null}
+
+        {activeView === 'certificate-logs' ? (
+          <AdminCertificateLogs
+            logs={certificateLogs}
+            stats={certificateStats}
+            query={q}
+            statusFilter={filter}
+            canDelete={admin.role === 'super_admin' || hasAdminPermission(admin, 'audit') || hasAdminPermission(admin, 'sessions')}
           />
         ) : null}
 

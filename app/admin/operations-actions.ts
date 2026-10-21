@@ -630,6 +630,34 @@ export async function deleteRegistrant(formData: FormData) {
   done('registrants', 'registrant-deleted')
 }
 
+export async function deleteAllRegistrants(formData: FormData) {
+  const { supabase, user } = await requirePermission('sessions')
+  const confirmation = String(formData.get('confirmation') || '').trim()
+  if (confirmation !== 'DELETE ALL REGISTRANTS') {
+    fail('registrants', 'invalid-confirmation', 'Type DELETE ALL REGISTRANTS exactly to confirm.')
+  }
+
+  await supabase.from('cgs_attendance_records').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await supabase.from('cgs_session_registrations').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  const { error } = await supabase.from('cgs_registrants').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  if (error) fail('registrants', 'delete')
+
+  try {
+    const { logAudit } = await import('@/lib/supabase/audit')
+    await logAudit({
+      actor_id: user.id,
+      action: 'delete_all',
+      entity: 'cgs_registrants',
+      entity_id: 'all',
+      details: { confirmed_by: user.email },
+    })
+  } catch (auditErr) {
+    console.warn('[Audit Log] Failed to log all registrants deletion:', auditErr)
+  }
+
+  done('registrants', 'all-registrants-deleted')
+}
+
 export async function updateInboxMessageStatus(formData: FormData) {
   const context = await requireAdmin()
   const id = formData.get('id')

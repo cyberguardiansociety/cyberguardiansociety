@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import { Trash2, Loader2 } from 'lucide-react'
+import HighSecurityDeleteModal from '@/components/admin/HighSecurityDeleteModal'
 
 type AdminDeleteButtonProps = {
   action: (formData: FormData) => Promise<void> | void
@@ -13,6 +14,8 @@ type AdminDeleteButtonProps = {
   className?: string
   title?: string
   extraFields?: Record<string, string>
+  confirmationPhrase?: string
+  itemName?: string
 }
 
 export default function AdminDeleteButton({
@@ -25,76 +28,79 @@ export default function AdminDeleteButton({
   className = '',
   title = 'Delete record',
   extraFields = {},
+  confirmationPhrase = 'DELETE',
+  itemName,
 }: AdminDeleteButtonProps) {
   const [isPending, startTransition] = useTransition()
+  const [modalOpen, setModalOpen] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    e.preventDefault()
     e.stopPropagation()
-    if (!window.confirm(confirmMessage)) {
-      e.preventDefault()
-      return
+    setModalOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    setModalOpen(false)
+    if (formRef.current) {
+      const formData = new FormData(formRef.current)
+      formData.set('confirmation', confirmationPhrase)
+      startTransition(async () => {
+        await action(formData)
+      })
     }
   }
 
-  const handleClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-  }
+  const renderButtonContent = () => (
+    <>
+      {isPending ? <Loader2 size={13} className="admin-spin-icon animate-spin" /> : <Trash2 size={13} />}
+      {variant !== 'icon' && <span>{isPending ? 'Deleting…' : label}</span>}
+    </>
+  )
 
-  if (variant === 'icon') {
-    return (
-      <form action={action} onSubmit={handleSubmit} onClick={handleClick} className="admin-inline-delete-form">
+  const buttonClass =
+    variant === 'icon'
+      ? `admin-card-top-delete-btn ${className}`
+      : variant === 'compact'
+      ? `admin-danger-button admin-modern-button admin-modern-button--compact ${className}`
+      : `admin-danger-button admin-modern-button ${className}`
+
+  return (
+    <>
+      <form
+        ref={formRef}
+        action={action}
+        onClick={(e) => e.stopPropagation()}
+        className="admin-inline-delete-form"
+      >
         <input type="hidden" name={name} value={value} />
+        <input type="hidden" name="confirmation" value={confirmationPhrase} />
         {Object.entries(extraFields).map(([k, v]) => (
           <input key={k} type="hidden" name={k} value={v} />
         ))}
         <button
-          type="submit"
+          type="button"
           disabled={isPending}
           title={title}
           aria-label={title}
-          className={`admin-card-top-delete-btn ${className}`}
+          onClick={handleTriggerClick}
+          className={buttonClass}
         >
-          {isPending ? <Loader2 size={13} className="admin-spin-icon" /> : <Trash2 size={13} />}
+          {renderButtonContent()}
         </button>
       </form>
-    )
-  }
 
-  if (variant === 'compact') {
-    return (
-      <form action={action} onSubmit={handleSubmit} onClick={handleClick} className="admin-inline-delete-form">
-        <input type="hidden" name={name} value={value} />
-        {Object.entries(extraFields).map(([k, v]) => (
-          <input key={k} type="hidden" name={k} value={v} />
-        ))}
-        <button
-          type="submit"
-          disabled={isPending}
-          title={title}
-          className={`admin-danger-button admin-modern-button admin-modern-button--compact ${className}`}
-        >
-          {isPending ? <Loader2 size={13} className="admin-spin-icon" /> : <Trash2 size={13} />}
-          <span>{label}</span>
-        </button>
-      </form>
-    )
-  }
-
-  return (
-    <form action={action} onSubmit={handleSubmit} onClick={handleClick} className="admin-inline-delete-form">
-      <input type="hidden" name={name} value={value} />
-      {Object.entries(extraFields).map(([k, v]) => (
-        <input key={k} type="hidden" name={k} value={v} />
-      ))}
-      <button
-        type="submit"
-        disabled={isPending}
+      <HighSecurityDeleteModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onConfirm={handleConfirmDelete}
         title={title}
-        className={`admin-danger-button admin-modern-button ${className}`}
-      >
-        {isPending ? <Loader2 size={14} className="admin-spin-icon" /> : <Trash2 size={14} />}
-        <span>{label}</span>
-      </button>
-    </form>
+        itemName={itemName || `${name}: ${value}`}
+        description={confirmMessage}
+        confirmationPhrase={confirmationPhrase}
+        isPending={isPending}
+      />
+    </>
   )
 }
