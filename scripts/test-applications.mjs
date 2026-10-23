@@ -45,7 +45,10 @@ function check(name, ok, detail = '') {
 }
 
 const SQL = await initSqlJs({ wasmBinary: fs.readFileSync(path.join(path.dirname(require_.resolve('sql.js')), 'sql-wasm.wasm')) })
-const db = new SQL.Database(fs.readFileSync(path.join(root, 'data', 'cgs.db')))
+const dbFile = fs.existsSync(path.join(root, 'cgs.db'))
+  ? path.join(root, 'cgs.db')
+  : path.join(root, 'data', 'cgs.db')
+const db = new SQL.Database(fs.readFileSync(dbFile))
 const stmt = db.prepare('SELECT user_id, email, role FROM admin_users LIMIT 1')
 stmt.step()
 const admin = stmt.getAsObject()

@@ -19,7 +19,9 @@ if (supabaseSecret.startsWith('sb_publishable_')) {
   throw new Error('A server-side Supabase secret key is required for this migration.')
 }
 
-const databasePath = path.join(process.cwd(), 'data', 'cgs.db')
+const databasePath = fs.existsSync(path.join(process.cwd(), 'cgs.db'))
+  ? path.join(process.cwd(), 'cgs.db')
+  : path.join(process.cwd(), 'data', 'cgs.db')
 if (!fs.existsSync(databasePath)) throw new Error('The local SQLite database file was not found.')
 
 const SQL = await initSqlJs({

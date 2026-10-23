@@ -40,6 +40,12 @@ yarn-error.log*
 .env.production.local
 
 # runtime data — never commit (contains password hashes and applicant PII)
+/cgs.db
+/cgs.db.tmp
+/cgs.db-shm
+/cgs.db-wal
+*.db
+*.db.tmp
 /data/cgs.db
 /data/cgs.db.tmp
 /data/maintenance-settings.json

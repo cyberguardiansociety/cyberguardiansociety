@@ -102,7 +102,10 @@ async function loadAdmin() {
   const SQL = await initSqlJs({
     wasmBinary: fs.readFileSync(path.join(path.dirname(require_.resolve('sql.js')), 'sql-wasm.wasm')),
   })
-  const db = new SQL.Database(fs.readFileSync(path.join(PROJECT_ROOT, 'data', 'cgs.db')))
+  const dbFile = fs.existsSync(path.join(PROJECT_ROOT, 'cgs.db'))
+    ? path.join(PROJECT_ROOT, 'cgs.db')
+    : path.join(PROJECT_ROOT, 'data', 'cgs.db')
+  const db = new SQL.Database(fs.readFileSync(dbFile))
   const stmt = db.prepare('SELECT user_id, email, role FROM admin_users LIMIT 1')
   let admin = null
   if (stmt.step()) admin = stmt.getAsObject()

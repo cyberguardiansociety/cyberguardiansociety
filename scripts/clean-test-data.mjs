@@ -40,7 +40,9 @@ const SQL_REMOVALS = [
 ]
 
 async function main() {
-  const dbPath = path.join(root, 'data', 'cgs.db')
+  const dbPath = fs.existsSync(path.join(root, 'cgs.db'))
+    ? path.join(root, 'cgs.db')
+    : path.join(root, 'data', 'cgs.db')
   const SQL = await initSqlJs({
     wasmBinary: fs.readFileSync(path.join(path.dirname(require_.resolve('sql.js')), 'sql-wasm.wasm')),
   })

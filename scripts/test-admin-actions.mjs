@@ -45,7 +45,10 @@ function check(name, ok, detail = '') {
 
 async function openDb() {
   const SQL = await initSqlJs({ wasmBinary: fs.readFileSync(path.join(path.dirname(require_.resolve('sql.js')), 'sql-wasm.wasm')) })
-  return new SQL.Database(fs.readFileSync(path.join(root, 'data', 'cgs.db')))
+  const dbFile = fs.existsSync(path.join(root, 'cgs.db'))
+    ? path.join(root, 'cgs.db')
+    : path.join(root, 'data', 'cgs.db')
+  return new SQL.Database(fs.readFileSync(dbFile))
 }
 
 const db = await openDb()

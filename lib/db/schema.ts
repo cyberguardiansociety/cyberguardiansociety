@@ -41,6 +41,7 @@ export function applySchema(db: any): void {
       timezone TEXT DEFAULT 'Asia/Karachi',
       platform TEXT DEFAULT 'Google Meet',
       href TEXT,
+      banner_url TEXT,
       status TEXT DEFAULT 'upcoming',
       management_status TEXT DEFAULT 'UPCOMING',
       is_published INTEGER DEFAULT 0,
@@ -116,6 +117,8 @@ export function applySchema(db: any): void {
       marked_at TEXT DEFAULT (datetime('now')),
       method TEXT DEFAULT 'manual',
       override_reason TEXT,
+      ip_address TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (session_id) REFERENCES online_sessions(id) ON DELETE CASCADE,
       FOREIGN KEY (registrant_id) REFERENCES cgs_registrants(id) ON DELETE CASCADE
     );
@@ -226,12 +229,35 @@ export function applySchema(db: any): void {
     -- Audit log table
     CREATE TABLE IF NOT EXISTS admin_audit_log (
       id TEXT PRIMARY KEY,
-      actor_id TEXT NOT NULL,
+      actor_id TEXT,
       action TEXT NOT NULL,
       entity TEXT NOT NULL,
       entity_id TEXT,
       details TEXT,
       created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Newsletter subscribers table
+    CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+      email TEXT PRIMARY KEY,
+      source TEXT DEFAULT 'team-page',
+      subscribed_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Admin login lockouts table
+    CREATE TABLE IF NOT EXISTS admin_login_lockouts (
+      identifier TEXT PRIMARY KEY,
+      failed_attempts INTEGER DEFAULT 0,
+      lockout_count INTEGER DEFAULT 0,
+      locked_until TEXT,
+      last_attempt_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Admin IP rate limits table
+    CREATE TABLE IF NOT EXISTS admin_ip_rate_limits (
+      limit_key TEXT PRIMARY KEY,
+      request_count INTEGER DEFAULT 0,
+      reset_at TEXT NOT NULL
     );
   `)
 
@@ -254,7 +280,10 @@ export function applySchema(db: any): void {
   ensureColumn('admin_users', 'username', 'username TEXT')
   ensureColumn('admin_users', 'is_protected', 'is_protected INTEGER NOT NULL DEFAULT 0')
   ensureColumn('online_sessions', 'created_by', 'created_by TEXT')
+  ensureColumn('online_sessions', 'banner_url', 'banner_url TEXT')
   ensureColumn('cgs_session_registrations', 'source', 'source TEXT')
+  ensureColumn('cgs_attendance_records', 'ip_address', 'ip_address TEXT')
+  ensureColumn('cgs_attendance_records', 'created_at', "created_at TEXT DEFAULT (datetime('now'))")
   ensureColumn('cgs_inbox_messages', 'kind', "kind TEXT DEFAULT 'contact'")
   ensureColumn('cgs_inbox_messages', 'metadata', 'metadata TEXT')
   ensureColumn('cgs_inbox_messages', 'source', 'source TEXT')

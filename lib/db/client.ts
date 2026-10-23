@@ -31,7 +31,18 @@ const state: DbState = ((globalThis as any).__cgsSqliteState ??= {
 } as DbState)
 
 function dbPath(): string {
-  return path.join(process.cwd(), 'data', 'cgs.db')
+  if (process.env.SQLITE_DB_PATH) {
+    return path.resolve(process.cwd(), process.env.SQLITE_DB_PATH)
+  }
+  const rootDb = path.join(process.cwd(), 'cgs.db')
+  if (fs.existsSync(rootDb)) {
+    return rootDb
+  }
+  const legacyDataDb = path.join(process.cwd(), 'data', 'cgs.db')
+  if (fs.existsSync(legacyDataDb)) {
+    return legacyDataDb
+  }
+  return rootDb
 }
 
 function fileMtimeMs(): number {

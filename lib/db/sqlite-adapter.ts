@@ -65,6 +65,9 @@ const TABLE_META: Record<string, TableMeta> = {
   cgs_google_sync_runs: { booleans: [], jsons: ['details'] },
   applications: { booleans: [], jsons: [] },
   admin_audit_log: { booleans: [], jsons: ['details'] },
+  newsletter_subscribers: { booleans: [], jsons: [] },
+  admin_login_lockouts: { booleans: [], jsons: [] },
+  admin_ip_rate_limits: { booleans: [], jsons: [] },
 }
 
 const IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/
