@@ -22,8 +22,6 @@ export type ContentRow = {
   image_url: string | null
   action_url: string | null
   category: string | null
-  price: number | null
-  currency: string
   status: 'draft' | 'published' | 'archived'
   sort_order: number
   updated_at?: string
@@ -46,7 +44,6 @@ const typeConfig = {
     icon: Megaphone,
     createLabel: 'Create announcement',
     searchPlaceholder: 'Search announcements...',
-    showPrice: false,
     color: 'cobalt',
   },
   product: {
@@ -55,7 +52,6 @@ const typeConfig = {
     icon: Package,
     createLabel: 'Create product',
     searchPlaceholder: 'Search products...',
-    showPrice: true,
     color: 'purple',
   },
   merchandise: {
@@ -64,7 +60,6 @@ const typeConfig = {
     icon: ShoppingBag,
     createLabel: 'Add merchandise',
     searchPlaceholder: 'Search merchandise...',
-    showPrice: true,
     color: 'emerald',
   },
   resource: {
@@ -73,7 +68,6 @@ const typeConfig = {
     icon: BookOpen,
     createLabel: 'Create resource',
     searchPlaceholder: 'Search resources...',
-    showPrice: false,
     color: 'amber',
   },
 }
@@ -91,16 +85,6 @@ function timeAgo(dateStr?: string): string {
   const days = Math.floor(hours / 24)
   if (days < 7) return `${days}d ago`
   return new Intl.DateTimeFormat('en', { dateStyle: 'short' }).format(new Date(dateStr))
-}
-
-function formatPrice(price: number | null, currency: string): string {
-  if (price == null) return '—'
-  return new Intl.NumberFormat('en', {
-    style: 'currency',
-    currency: currency || 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(price)
 }
 
 // ── Main Client Component ──────────────────────────────────────────────
@@ -342,42 +326,6 @@ export default function AdminContentWorkspace({ type, records, error }: Props) {
               </label>
             </div>
 
-            {/* Pricing Section (only for merchandise/products) */}
-            {cfg.showPrice ? (
-              <div className="cms-form-row">
-                <label className="cms-form-label">
-                  <span>Price</span>
-                  <input
-                    key={editingItem?.id ?? 'price-new'}
-                    name="price"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    defaultValue={editingItem?.price ?? ''}
-                    placeholder="0.00"
-                    className="cms-form-input"
-                  />
-                </label>
-                <label className="cms-form-label">
-                  <span>Currency</span>
-                  <input
-                    key={editingItem?.id ?? 'curr-new'}
-                    name="currency"
-                    defaultValue={editingItem?.currency ?? 'USD'}
-                    minLength={3}
-                    maxLength={3}
-                    required
-                    className="cms-form-input"
-                  />
-                </label>
-              </div>
-            ) : (
-              <>
-                <input type="hidden" name="price" value="" />
-                <input type="hidden" name="currency" value={editingItem?.currency ?? 'USD'} />
-              </>
-            )}
-
             {/* Animated Cyber Drag & Drop Image Upload Component */}
             <AdminFileUpload
               key={editingItem?.id ?? 'upload-fresh'}
@@ -516,7 +464,6 @@ export default function AdminContentWorkspace({ type, records, error }: Props) {
                   <tr>
                     <th>Item</th>
                     <th>Category</th>
-                    {cfg.showPrice && <th>Price</th>}
                     <th>Status</th>
                     <th>Order</th>
                     <th>Updated</th>
@@ -551,13 +498,6 @@ export default function AdminContentWorkspace({ type, records, error }: Props) {
                           <span className="cms-text-muted">—</span>
                         )}
                       </td>
-                      {cfg.showPrice && (
-                        <td>
-                          <span className="cms-price-text">
-                            {formatPrice(item.price, item.currency)}
-                          </span>
-                        </td>
-                      )}
                       <td>
                         <span className={`cms-pill cms-pill--${item.status}`}>
                           {item.status}

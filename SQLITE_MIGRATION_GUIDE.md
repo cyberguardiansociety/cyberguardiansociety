@@ -32,7 +32,7 @@ frontend and Express backend — now runs against the local SQLite database
 Tables: `admin_users`, `online_sessions`, `cgs_speakers`,
 `cgs_session_speakers`, `cgs_registrants`, `cgs_session_registrations`,
 `cgs_attendance_records`, `cgs_managed_content`, `cgs_inbox_messages`,
-`cgs_portal_settings`, `cgs_payment_ledger`, `cgs_google_sheet_connections`,
+`cgs_portal_settings`, `cgs_google_sheet_connections`,
 `cgs_google_sync_runs`, `applications`, `admin_audit_log`.
 
 Booleans are stored as INTEGER 0/1 (round-tripped to JS booleans by the

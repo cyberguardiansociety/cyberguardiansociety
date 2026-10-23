@@ -22,7 +22,7 @@ const managedContentIdPattern = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i
 const permissionKeys = [
   'sessions', 'applications', 'inbox', 'activity', 'speaker_applications', 'speakers',
   'content_announcement', 'content_product', 'content_merchandise', 'content_resource',
-  'payments', 'audit', 'google_sync',
+  'audit', 'google_sync',
 ] as const
 
 function text(formData: FormData, key: string, max: number) {
@@ -71,20 +71,16 @@ export async function saveManagedContent(formData: FormData) {
   const category = text(formData, 'category', 100)
   const actionUrlValue = text(formData, 'actionUrl', 2048)
   const slugInput = text(formData, 'slug', 180)
-  const priceValue = text(formData, 'price', 24) || ''
-  const currency = (text(formData, 'currency', 3) || 'USD').toUpperCase()
   const sortOrderValue = text(formData, 'sortOrder', 8) || '0'
   const statusValue = (text(formData, 'status', 16) || 'draft') as 'draft' | 'published' | 'archived'
   const actionUrl = actionUrlValue === null ? null : safeWebUrl(actionUrlValue)
   const sortOrder = Number(sortOrderValue)
-  const price = priceValue ? Number(priceValue) : null
   const slug = (slugInput || title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
   if (
     !title || title.length < 2 || summary === null || !summary || body === null ||
     actionUrl === null || !slug || slug.length > 180 ||
-    (price !== null && (!Number.isFinite(price) || price < 0 || price > 9999999999)) ||
-    !/^[A-Z]{3}$/.test(currency) || !Number.isInteger(sortOrder) ||
+    !Number.isInteger(sortOrder) ||
     !['draft', 'published', 'archived'].includes(statusValue) ||
     (id !== null && (typeof id !== 'string' || !managedContentIdPattern.test(id)))
   ) redirect(adminUrl('', { view: contentView, error: 'content-invalid' }))
@@ -106,8 +102,6 @@ export async function saveManagedContent(formData: FormData) {
     image_url: imageUrl,
     action_url: actionUrl || null,
     category: category || null,
-    price,
-    currency,
     status: statusValue,
     sort_order: sortOrder,
     updated_at: new Date().toISOString(),
@@ -139,7 +133,7 @@ export async function saveManagedContent(formData: FormData) {
       action: typeof id === 'string' ? 'update' : 'create',
       entity: `cgs_managed_content_${kind}`,
       entity_id: String(savedId || title),
-      details: { title, slug, status: statusValue, content_type: kind, category, price },
+      details: { title, slug, status: statusValue, content_type: kind, category },
     })
   } catch (auditErr) {
     console.warn('[Audit Log] Failed to log content save:', auditErr)
@@ -182,85 +176,6 @@ export async function deleteManagedContent(formData: FormData) {
   }
 
   finish(kindValue === 'merchandise' ? 'merchandise' : kindValue === 'resource' ? 'resources' : kindValue === 'announcement' ? 'announcements' : 'products', 'content-deleted')
-}
-
-export async function createPaymentEntry(formData: FormData) {
-  const { supabase, user } = await requirePermission('payments')
-  const entryType = text(formData, 'entryType', 20)
-  const status = text(formData, 'status', 20)
-  const amount = Number(formData.get('amount'))
-  const commissionValue = text(formData, 'commission', 24) || '0'
-  const commission = Number(commissionValue)
-  const currency = (text(formData, 'currency', 3) || '').toUpperCase()
-  const payer = text(formData, 'payer', 180)
-  const payee = text(formData, 'payee', 180)
-  const reference = text(formData, 'reference', 180)
-  const paymentMethod = text(formData, 'paymentMethod', 80)
-  const notes = text(formData, 'notes', 2000)
-  const occurredAtValue = text(formData, 'occurredAt', 40)
-  const occurredAt = occurredAtValue ? new Date(occurredAtValue) : new Date()
-  if (
-    !['payment', 'refund', 'failed', 'commission'].includes(entryType || '') ||
-    !['pending', 'succeeded', 'failed', 'refunded'].includes(status || '') ||
-    !Number.isFinite(amount) || amount <= 0 || amount > 9999999999 ||
-    !Number.isFinite(commission) || commission < 0 || commission > amount ||
-    !/^[A-Z]{3}$/.test(currency) || !payer || !reference ||
-    paymentMethod === null || notes === null || !Number.isFinite(occurredAt.getTime())
-  ) redirect(adminUrl('', { view: 'payments', error: 'payment-invalid' }))
-  const { error } = await supabase.from('cgs_payment_ledger').insert({
-    entry_type: entryType,
-    status,
-    amount,
-    currency,
-    payer,
-    payee: payee || null,
-    reference,
-    payment_method: paymentMethod || null,
-    commission,
-    occurred_at: occurredAt.toISOString(),
-    notes: notes || null,
-    created_by: user.id,
-  })
-  if (error) redirect(adminUrl('', { view: 'payments', error: 'payment-save' }))
-
-  try {
-    const { logAudit } = await import('@/lib/supabase/audit')
-    await logAudit({
-      actor_id: user.id,
-      action: 'create',
-      entity: 'cgs_payment_ledger',
-      entity_id: reference,
-      details: { entry_type: entryType, amount, currency, payer, status },
-    })
-  } catch (auditErr) {
-    console.warn('[Audit Log] Failed to log payment create:', auditErr)
-  }
-
-  finish('payments', 'payment-created')
-}
-
-export async function updatePaymentStatus(formData: FormData) {
-  const { supabase, user } = await requirePermission('payments')
-  const id = formData.get('id')
-  const status = formData.get('status')
-  if (typeof id !== 'string' || !uuidPattern.test(id) || typeof status !== 'string' || !['pending', 'succeeded', 'failed', 'refunded'].includes(status)) redirect(adminUrl('', { view: 'payments', error: 'payment-invalid' }))
-  const { error } = await supabase.from('cgs_payment_ledger').update({ status, updated_at: new Date().toISOString() }).eq('id', id)
-  if (error) redirect(adminUrl('', { view: 'payments', error: 'payment-save' }))
-
-  try {
-    const { logAudit } = await import('@/lib/supabase/audit')
-    await logAudit({
-      actor_id: user.id,
-      action: 'update_status',
-      entity: 'cgs_payment_ledger',
-      entity_id: id,
-      details: { status },
-    })
-  } catch (auditErr) {
-    console.warn('[Audit Log] Failed to log payment status update:', auditErr)
-  }
-
-  finish('payments', 'payment-updated')
 }
 
 export async function createDelegatedAdmin(formData: FormData) {

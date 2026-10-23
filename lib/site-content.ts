@@ -16,8 +16,6 @@ export type ManagedContentItem = {
   image_url: string | null
   action_url: string | null
   category: string | null
-  price: number | null
-  currency: string
   status: 'draft' | 'published' | 'archived'
   sort_order: number
   created_at: string

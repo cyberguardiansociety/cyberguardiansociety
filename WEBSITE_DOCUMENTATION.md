@@ -170,7 +170,7 @@ The admin interface includes views for:
 - Optional Google Sheets connection/synchronization
 - Operations exports for attendance and registrant records
 
-Individual operations are permission-checked. The implementation defines permission areas for sessions, applications, inbox, activity, speaker applications, speakers, content types, Google sync, payments, admin management, and audit access. The database and admin UI remain the sources of truth for the exact permission checks.
+Individual operations are permission-checked. The implementation defines permission areas for sessions, applications, inbox, activity, speaker applications, speakers, content types, Google sync, admin management, and audit access. The database and admin UI remain the sources of truth for the exact permission checks.
 
 ## Design, responsiveness, and accessibility
 
@@ -223,7 +223,6 @@ Tables currently cover:
 | Portal configuration | `cgs_portal_settings` |
 | Public forms/inbox | `cgs_inbox_messages` |
 | Managed public content | `cgs_managed_content` |
-| Payments/ledger | `cgs_payment_ledger` |
 
 SQLite has no row-level security and there is no SQL policy layer. Authorization is enforced in the application instead: every admin page, server action, and export checks the signed admin session cookie and the caller's permission keys before it runs a query, and the database file is only opened from server-side code. Review those checks before exposing a new table or query — a table's existence alone does not mean it is safe to expose.
 

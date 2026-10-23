@@ -1034,7 +1034,7 @@ export const footer = {
   },
   joinBox: {
     title: 'Help make the network stronger',
-    body: 'Membership starts with a conversation, not a payment.',
+    body: 'Membership starts with a conversation.',
     primary: { label: 'Apply to join', href: org.joinHref },
     secondary: { label: 'Talk to us first', href: org.contactHref },
   },

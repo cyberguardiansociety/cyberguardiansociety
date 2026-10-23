@@ -17,7 +17,6 @@ export const ADMIN_PERMISSION_KEYS = [
   'content_merchandise',
   'content_resource',
   'google_sync',
-  'payments',
   'admins',
   'audit',
 ] as const
@@ -45,7 +44,7 @@ export type AdminPermissionContext = AdminAuthContext & {
 /**
  * Validates permission against role & explicit keys:
  * - Only 'super_admin' skips permission checks completely.
- * - 'admins', 'audit', and 'payments' strictly require an explicit key for everyone else.
+ * - 'admins' and 'audit' strictly require an explicit key for everyone else.
  * - For non-sensitive permissions, 'admin' role has access, while 'limited_admin' requires the explicit key.
  */
 export function hasAdminPermission(
@@ -57,7 +56,7 @@ export function hasAdminPermission(
   }
 
   // Sensitive security operations strictly require an explicit key
-  const sensitivePermissions: AdminPermission[] = ['admins', 'audit', 'payments']
+  const sensitivePermissions: AdminPermission[] = ['admins', 'audit']
   if (sensitivePermissions.includes(permission)) {
     return Boolean(admin.permission_keys?.includes(permission))
   }

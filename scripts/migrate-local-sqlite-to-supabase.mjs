@@ -38,7 +38,6 @@ const tableOrder = [
   ['cgs_managed_content', 'id'],
   ['cgs_inbox_messages', 'id'],
   ['cgs_portal_settings', 'key'],
-  ['cgs_payment_ledger', 'id'],
   ['applications', 'id'],
   ['cgs_session_speakers', 'id'],
   ['cgs_session_registrations', 'id'],

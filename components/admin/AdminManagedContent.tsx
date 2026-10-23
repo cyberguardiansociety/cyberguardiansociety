@@ -24,8 +24,6 @@ export default async function AdminManagedContent({ type }: { type: ManagedConte
     image_url: it.image_url,
     action_url: it.action_url,
     category: it.category,
-    price: it.price,
-    currency: it.currency,
     status: it.status,
     sort_order: it.sort_order,
     updated_at: it.updated_at,

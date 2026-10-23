@@ -22,7 +22,6 @@ export default function ManagedContentCards({ items }: { items: ManagedContentIt
               {item.category ? <p className="eyebrow">{item.category}</p> : null}
               <h3>{item.title}</h3>
               <p>{item.summary}</p>
-              {item.price !== null ? <strong className="managed-content-card__price">{item.currency} {item.price.toFixed(2)}</strong> : null}
               {safeAction ? (
                 external ? (
                   <a href={safeAction} target="_blank" rel="noopener noreferrer" className="managed-content-card__link">View details</a>

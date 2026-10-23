@@ -74,8 +74,6 @@ function getDefaultContent(): ManagedContentItem[] {
       image_url: null,
       action_url: '/#join',
       category: 'COMMUNITY',
-      price: null,
-      currency: 'USD',
       status: 'published',
       sort_order: 1,
       created_at: now,
@@ -91,8 +89,6 @@ function getDefaultContent(): ManagedContentItem[] {
       image_url: null,
       action_url: 'https://github.com/cyberguardiansociety',
       category: 'DEFENSIVE TOOLING',
-      price: 0,
-      currency: 'USD',
       status: 'published',
       sort_order: 1,
       created_at: now,
@@ -108,8 +104,6 @@ function getDefaultContent(): ManagedContentItem[] {
       image_url: null,
       action_url: '/services',
       category: 'PLAYBOOK',
-      price: null,
-      currency: 'USD',
       status: 'published',
       sort_order: 1,
       created_at: now,
@@ -117,6 +111,9 @@ function getDefaultContent(): ManagedContentItem[] {
     },
   ]
 }
+
+const MANAGED_CONTENT_COLUMNS =
+  'id, content_type, title, slug, summary, body, image_url, action_url, category, status, sort_order, created_at, updated_at'
 
 export async function getManagedContentItems(
   contentType: ManagedContentType,
@@ -137,7 +134,7 @@ export async function getManagedContentItems(
   if (supabase) {
     let query = supabase
       .from('cgs_managed_content')
-      .select('*')
+      .select(MANAGED_CONTENT_COLUMNS)
       .eq('content_type', contentType)
 
     if (onlyPublished) query = query.eq('status', 'published')
@@ -198,11 +195,6 @@ export async function saveManagedContentItem(
   const title = itemData.title.trim()
   const slug = itemData.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
-  const validPrice =
-    typeof itemData.price === 'number' && Number.isFinite(itemData.price) && itemData.price >= 0
-      ? Math.round(itemData.price * 100) / 100
-      : null
-
   const record: ManagedContentItem = {
     id,
     content_type: itemData.content_type,
@@ -213,8 +205,6 @@ export async function saveManagedContentItem(
     image_url: validateContentUrl(itemData.image_url),
     action_url: validateContentUrl(itemData.action_url),
     category: itemData.category || null,
-    price: validPrice,
-    currency: itemData.currency || 'USD',
     status: itemData.status || 'published',
     sort_order: typeof itemData.sort_order === 'number' && Number.isFinite(itemData.sort_order) ? itemData.sort_order : 100,
     created_at: itemData.created_at || now,
@@ -318,7 +308,7 @@ export async function deleteAllDraftManagedContent(supabase?: any): Promise<numb
   if (supabase) {
     const { data: rows, error: readError } = await supabase
       .from('cgs_managed_content')
-      .select('*')
+      .select(MANAGED_CONTENT_COLUMNS)
       .in('content_type', contentTypes)
       .eq('status', 'draft')
     if (readError) throw new Error('Draft content could not be loaded.')

@@ -231,24 +231,17 @@ export default function AnnouncementRows({ items }: { items: ManagedContentItem[
                 ))}
               </div>
 
-              {(safeAction || activeItem.price !== null) && (
+              {safeAction && (
                 <footer className="announcement-popup__footer">
-                  {activeItem.price !== null && (
-                    <span className="announcement-popup__price">
-                      {[activeItem.currency, activeItem.price.toFixed(2)].filter(Boolean).join(' ')}
-                    </span>
-                  )}
-                  {safeAction && (
-                    <a
-                      href={safeAction}
-                      target={isExternal ? '_blank' : undefined}
-                      rel={isExternal ? 'noopener noreferrer' : undefined}
-                      className="clay clay--primary clay--sm announcement-popup__cta"
-                    >
-                      View details
-                      {isExternal ? <ExternalLink size={15} /> : <ArrowUpRight size={15} />}
-                    </a>
-                  )}
+                  <a
+                    href={safeAction}
+                    target={isExternal ? '_blank' : undefined}
+                    rel={isExternal ? 'noopener noreferrer' : undefined}
+                    className="clay clay--primary clay--sm announcement-popup__cta"
+                  >
+                    View details
+                    {isExternal ? <ExternalLink size={15} /> : <ArrowUpRight size={15} />}
+                  </a>
                 </footer>
               )}
             </motion.article>

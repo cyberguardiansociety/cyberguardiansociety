@@ -2007,7 +2007,6 @@ details.admin-inbox-item[open] > .admin-inbox-item__summary::after { transform: 
 .managed-content-card__body { display: flex; min-width: 0; flex: 1; flex-direction: column; align-items: start; padding: 20px; }
 .managed-content-card__body h3 { margin-top: 8px; font-size: 18px; }
 .managed-content-card__body > p:not(.eyebrow) { margin-top: 8px; color: var(--ink-muted); font-size: 12px; line-height: 1.65; }
-.managed-content-card__price { margin-top: 12px; font-size: 13px; }
 .managed-content-card__link { margin-top: 16px; color: var(--mint); font-size: 12px; font-weight: 700; }
 .announcement-empty { margin-inline: auto; max-width: 60ch; border: 1px solid var(--line); border-radius: 16px; padding: 26px; color: var(--ink-muted); text-align: center; }
 .admin-management-layout { display: grid; min-width: 0; gap: 22px; }
@@ -2030,13 +2029,6 @@ details.admin-inbox-item[open] > .admin-inbox-item__summary::after { transform: 
 .admin-managed-admin > div { display: grid; min-width: 0; gap: 5px; }
 .admin-managed-admin strong { overflow-wrap: anywhere; font-size: 13px; }
 .admin-managed-admin small, .admin-managed-admin p { color: var(--adm-muted); font-size: 10px; }
-.admin-payment-list { display: grid; gap: 10px; }
-.admin-payment-row { display: flex; min-width: 0; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 16px; border: 1px solid var(--adm-edge-strong); border-radius: 14px; background: var(--adm-card); padding: 14px; }
-.admin-payment-row__main { display: grid; min-width: 0; gap: 6px; }
-.admin-payment-row__main > strong { font-size: 17px; }
-.admin-payment-row__main small, .admin-payment-row__main p { color: var(--adm-muted); font-size: 10px; overflow-wrap: anywhere; }
-.admin-payment-row__status { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; }
-.admin-payment-row__status .admin-label { min-width: 120px; }
 @media (min-width: 1000px) {
   .managed-content-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-management-layout { grid-template-columns: minmax(300px, .8fr) minmax(0, 1.2fr); align-items: start; }
@@ -2044,9 +2036,8 @@ details.admin-inbox-item[open] > .admin-inbox-item__summary::after { transform: 
 }
 @media (min-width: 1450px) { .managed-content-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 480px) {
-  .admin-management-actions, .admin-payment-row__status { width: 100%; }
-  .admin-management-actions > *, .admin-payment-row__status button { flex: 1 1 auto; }
-  .admin-payment-row__status .admin-label { flex: 1 1 100%; }
+  .admin-management-actions { width: 100%; }
+  .admin-management-actions > * { flex: 1 1 auto; }
 }
 @keyframes attendance-spin { to { transform: rotate(360deg); } }
 
@@ -2323,8 +2314,7 @@ body:has(.admin-login-page) > footer { display: none; }
 
 .admin-speaker-avatar,
 .admin-inbox-avatar,
-.admin-content-avatar,
-.admin-payment-avatar {
+.admin-content-avatar {
   color: var(--adm-cobalt-lt);
 }
 
@@ -2760,72 +2750,6 @@ body:has(.admin-login-page) > footer { display: none; }
   background: transparent;
   padding: 0;
   font-size: 12px;
-}
-
-/* ── Payment Details ────────────────────────────────────────────────── */
-.admin-payment-details {
-  padding: 16px 18px;
-  display: grid;
-  gap: 12px;
-}
-
-.admin-payment-flow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: 650;
-}
-
-.admin-payment-payer,
-.admin-payment-payee {
-  color: var(--adm-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-payment-arrow {
-  color: var(--adm-muted);
-  flex-shrink: 0;
-}
-
-.admin-payment-reference,
-.admin-payment-method,
-.admin-payment-commission {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.admin-payment-ref-label,
-.admin-payment-method-label,
-.admin-payment-commission-label {
-  color: var(--adm-muted);
-  font-weight: 550;
-}
-
-.admin-payment-ref-value,
-.admin-payment-method-label + span,
-.admin-payment-commission-value {
-  color: var(--adm-text);
-  font-weight: 500;
-}
-
-.admin-payment-commission-value {
-  font-weight: 700;
-  color: var(--adm-cobalt-lt);
-}
-
-.admin-payment-notes {
-  margin: 0;
-  padding: 10px 12px;
-  background: var(--adm-card-2);
-  border-radius: 8px;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--adm-text);
 }
 
 /* ── CV Section ─────────────────────────────────────────────────────── */
@@ -4152,13 +4076,6 @@ body:has(.admin-login-page) > footer { display: none; }
   border: 1px solid var(--adm-edge-strong);
   border-radius: 5px;
   color: var(--adm-text);
-  white-space: nowrap;
-}
-
-.cms-price-text {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #34d399;
   white-space: nowrap;
 }
 
@@ -7700,8 +7617,7 @@ body:has(.admin-login-page) > footer { display: none; }
   object-fit: cover;
 }
 
-.announcement-popup__chip,
-.announcement-popup__price {
+.announcement-popup__chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -7713,11 +7629,6 @@ body:has(.admin-login-page) > footer { display: none; }
   font-size: 11.5px;
   font-weight: 600;
   color: var(--mint);
-}
-
-.announcement-popup__price {
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .announcement-popup__summary {

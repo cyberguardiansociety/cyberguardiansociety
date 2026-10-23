@@ -134,8 +134,6 @@ export function applySchema(db: any): void {
       image_url TEXT,
       action_url TEXT,
       category TEXT,
-      price REAL,
-      currency TEXT DEFAULT 'USD',
       status TEXT DEFAULT 'published',
       sort_order INTEGER DEFAULT 0,
       created_by TEXT,
@@ -163,25 +161,6 @@ export function applySchema(db: any): void {
       id TEXT PRIMARY KEY,
       key TEXT UNIQUE NOT NULL,
       value TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
-    );
-
-    -- Payment ledger table
-    CREATE TABLE IF NOT EXISTS cgs_payment_ledger (
-      id TEXT PRIMARY KEY,
-      entry_type TEXT,
-      status TEXT DEFAULT 'pending',
-      amount REAL,
-      currency TEXT DEFAULT 'USD',
-      payer TEXT,
-      payee TEXT,
-      reference TEXT,
-      payment_method TEXT,
-      commission REAL,
-      occurred_at TEXT,
-      notes TEXT,
-      created_by TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );

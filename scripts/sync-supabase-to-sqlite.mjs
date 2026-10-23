@@ -27,7 +27,6 @@ const ALL_TABLES = [
   'cgs_managed_content',
   'cgs_inbox_messages',
   'cgs_portal_settings',
-  'cgs_payment_ledger',
   'cgs_google_sheet_connections',
   'cgs_google_sync_runs',
   'applications',
@@ -149,8 +148,6 @@ const SCHEMA_DDL = `
     image_url TEXT,
     action_url TEXT,
     category TEXT,
-    price REAL,
-    currency TEXT DEFAULT 'USD',
     status TEXT DEFAULT 'published',
     sort_order INTEGER DEFAULT 0,
     created_by TEXT,
@@ -176,24 +173,6 @@ const SCHEMA_DDL = `
     id TEXT PRIMARY KEY,
     key TEXT UNIQUE NOT NULL,
     value TEXT,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS cgs_payment_ledger (
-    id TEXT PRIMARY KEY,
-    entry_type TEXT,
-    status TEXT DEFAULT 'pending',
-    amount REAL,
-    currency TEXT DEFAULT 'USD',
-    payer TEXT,
-    payee TEXT,
-    reference TEXT,
-    payment_method TEXT,
-    commission REAL,
-    occurred_at TEXT,
-    notes TEXT,
-    created_by TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -356,10 +335,17 @@ async function main() {
     process.stdout.write(`[${rows.length} rows] -> writing to SQLite ... `)
 
     if (rows.length > 0) {
+      // Only copy columns that exist in the local schema; the hosted table may
+      // briefly carry legacy columns that have been removed locally.
+      const targetColumns = new Set(
+        (db.exec(`PRAGMA table_info("${table}")`)[0]?.values ?? []).map((row) => String(row[1])),
+      )
       // Get all unique columns across all rows in this table
       const columnSet = new Set()
       for (const row of rows) {
-        for (const k of Object.keys(row)) columnSet.add(k)
+        for (const k of Object.keys(row)) {
+          if (targetColumns.has(k)) columnSet.add(k)
+        }
       }
       const columns = Array.from(columnSet)
       const placeholders = columns.map(() => '?').join(', ')

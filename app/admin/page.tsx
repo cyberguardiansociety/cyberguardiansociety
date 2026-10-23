@@ -55,8 +55,6 @@ const operationErrors: Record<string, string> = {
   'settings-save':     'The setting could not be saved. Please retry.',
   'settings-action':   'The requested action could not be completed.',
   'image-invalid':     'Choose a valid PNG, JPEG, or WebP image smaller than 4 MB.',
-  'payment-invalid':   'Check the payment entry and try again.',
-  'payment-save':      'The payment entry could not be saved.',
   'admin-invalid':     'Check the administrator details and permissions.',
   'admin-invalid-email': 'Please enter a valid administrator email address.',
   'admin-weak-password': 'Administrator password must be at least 12 characters.',
@@ -76,8 +74,6 @@ const operationStatuses: Record<string, string> = {
   'session-deleted':    'Session deleted.',
   'content-saved':      'Content saved.',
   'content-deleted':    'Content deleted.',
-  'payment-created':    'Payment ledger entry recorded.',
-  'payment-updated':    'Payment status updated.',
   'admin-created':      'Limited administrator created.',
   'admin-updated':      'Administrator access updated.',
   'admin-deleted':      'Administrator account was permanently removed.',
@@ -187,7 +183,7 @@ const views = {
   },
   merchandise: {
     title: 'Merchandise',
-    description: 'Manage merchandise listings, prices, descriptions, and images.',
+    description: 'Manage merchandise listings, descriptions, and images.',
   },
   resources: {
     title: 'Free resources',
