@@ -28,7 +28,7 @@ const IMAGE_EXTENSIONS: Record<string, string> = {
   'image/avif': 'avif',
 }
 
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024
 const MAX_PRIVATE_BYTES = 25 * 1024 * 1024
 
 function validateImageMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -135,7 +135,7 @@ export async function uploadPublicContentImage(
       return { ok: false, error: 'The image file is empty.' }
     }
     if (buffer.length > MAX_IMAGE_BYTES) {
-      return { ok: false, error: 'Image must be smaller than 5 MB.' }
+      return { ok: false, error: 'Image must be smaller than 4 MB.' }
     }
     if (!validateImageMagicBytes(buffer, type)) {
       return { ok: false, error: 'File contents do not match the specified image format.' }

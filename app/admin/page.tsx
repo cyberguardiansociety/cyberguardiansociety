@@ -54,7 +54,7 @@ const operationErrors: Record<string, string> = {
   'audit-delete':        'The audit logs could not be deleted. Please retry.',
   'settings-save':     'The setting could not be saved. Please retry.',
   'settings-action':   'The requested action could not be completed.',
-  'image-invalid':     'Choose a valid PNG, JPEG, or WebP image smaller than 5 MB.',
+  'image-invalid':     'Choose a valid PNG, JPEG, or WebP image smaller than 4 MB.',
   'payment-invalid':   'Check the payment entry and try again.',
   'payment-save':      'The payment entry could not be saved.',
   'admin-invalid':     'Check the administrator details and permissions.',

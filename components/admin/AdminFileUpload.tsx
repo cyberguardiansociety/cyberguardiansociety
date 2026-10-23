@@ -19,8 +19,8 @@ export default function AdminFileUpload({
   existingImageUrl = null,
   accept = 'image/png,image/jpeg,image/webp',
   label = 'Cover Image (PNG, JPEG, WebP)',
-  hint = 'Drag and drop or browse — Recommended ratio 16:9, max 5MB',
-  maxSizeMb = 5,
+  hint = 'Drag and drop or browse — Recommended ratio 16:9, max 4MB',
+  maxSizeMb = 4,
   onFileSelect,
 }: AdminFileUploadProps) {
   const [file, setFile] = useState<File | null>(null)

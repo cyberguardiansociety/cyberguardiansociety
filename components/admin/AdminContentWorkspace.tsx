@@ -384,7 +384,7 @@ export default function AdminContentWorkspace({ type, records, error }: Props) {
               name="image"
               existingImageUrl={editingItem?.image_url}
               label={editingItem?.image_url ? 'Cover Image (Change / Replace)' : 'Cover Image Asset'}
-              hint="PNG, JPEG, WebP up to 5MB"
+              hint="PNG, JPEG, WebP up to 4MB"
             />
 
             {/* Publishing: Status & Display Order */}

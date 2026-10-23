@@ -62,6 +62,7 @@ export async function saveManagedContent(formData: FormData) {
   const kindValue = formData.get('contentType')
   if (!contentType(kindValue)) redirect(adminUrl('', { error: 'content-invalid' }))
   const kind = kindValue
+  const contentView = kind === 'merchandise' ? 'merchandise' : kind === 'resource' ? 'resources' : kind === 'announcement' ? 'announcements' : 'products'
   const { supabase, user } = await requirePermission(contentPermissions[kind])
   const id = formData.get('id')
   const title = text(formData, 'title', 180)
@@ -86,13 +87,13 @@ export async function saveManagedContent(formData: FormData) {
     !/^[A-Z]{3}$/.test(currency) || !Number.isInteger(sortOrder) ||
     !['draft', 'published', 'archived'].includes(statusValue) ||
     (id !== null && (typeof id !== 'string' || !managedContentIdPattern.test(id)))
-  ) redirect(adminUrl('', { view: kind === 'merchandise' ? 'merchandise' : kind === 'resource' ? 'resources' : kind === 'announcement' ? 'announcements' : 'products', error: 'content-invalid' }))
+  ) redirect(adminUrl('', { view: contentView, error: 'content-invalid' }))
 
   let imageUrl = text(formData, 'existingImageUrl', 2048) || null
   const imageValue = formData.get('image')
   if (imageValue instanceof File && imageValue.size > 0) {
     const uploaded = await uploadPublicContentImage(kind, imageValue)
-    if (!uploaded.ok) redirect(adminUrl('', { view: kind === 'merchandise' ? 'merchandise' : kind === 'resource' ? 'resources' : kind === 'announcement' ? 'announcements' : 'products', error: 'image-invalid' }))
+    if (!uploaded.ok) redirect(adminUrl('', { view: contentView, error: 'image-invalid' }))
     imageUrl = uploaded.url ?? null
   }
 
@@ -114,14 +115,20 @@ export async function saveManagedContent(formData: FormData) {
 
   // Save to local store + Supabase
   const { saveManagedContentItem } = await import('@/lib/managed-content-store')
-  const savedItem = await saveManagedContentItem(
-    {
-      ...record,
-      id: id || undefined,
-    },
-    user.id,
-    supabase,
-  )
+  let savedItem: Awaited<ReturnType<typeof saveManagedContentItem>>
+  try {
+    savedItem = await saveManagedContentItem(
+      {
+        ...record,
+        id: id || undefined,
+      },
+      user.id,
+      supabase,
+    )
+  } catch (saveError) {
+    console.error('[saveManagedContent] Failed to save content:', saveError)
+    redirect(adminUrl('', { view: contentView, error: 'content-save' }))
+  }
   const savedId = savedItem.id
 
   // Log in audit log
@@ -138,7 +145,7 @@ export async function saveManagedContent(formData: FormData) {
     console.warn('[Audit Log] Failed to log content save:', auditErr)
   }
 
-  finish(kind === 'merchandise' ? 'merchandise' : kind === 'resource' ? 'resources' : kind === 'announcement' ? 'announcements' : 'products', 'content-saved')
+  finish(contentView, 'content-saved')
 }
 
 export async function deleteManagedContent(formData: FormData) {

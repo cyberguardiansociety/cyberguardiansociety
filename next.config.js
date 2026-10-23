@@ -6,6 +6,13 @@ const nextConfig = {
   // Track security upgrades of Next.js in development.
   experimental: {
     agentUpgrade: 'security',
+    // Admin content forms submit cover images (validated up to 4 MB) through a
+    // server action. Next defaults to a 1 MB request body, and Vercel's
+    // serverless functions cap request bodies at 4.5 MB, so keep the form cap
+    // at 4 MB and leave headroom for multipart boundary/header overhead.
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
   },
   images: {
     remotePatterns: [
