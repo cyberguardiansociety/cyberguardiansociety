@@ -282,7 +282,7 @@ export default function AdminCertificateLogs({
             <table className="admin-table">
               <thead>
                 <tr>
-                  <th>Time (UTC)</th>
+                  <th>Time</th>
                   <th>Reference ID</th>
                   <th>Status</th>
                   <th>Participant</th>
@@ -296,13 +296,8 @@ export default function AdminCertificateLogs({
                   const isVerified = log.status === 'success'
                   return (
                     <tr key={log.id}>
-                      <td data-label="Time (UTC)">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span className="table-time-text">{formatDateTime(log.created_at)}</span>
-                          <small style={{ color: 'var(--adm-muted)', fontSize: '10.5px' }}>
-                            {formatRelative(log.created_at)}
-                          </small>
-                        </div>
+                      <td data-label="Time">
+                        <span className="table-time-text">{formatDateTime(log.created_at)}</span>
                       </td>
 
                       <td data-label="Reference ID">
@@ -367,19 +362,21 @@ export default function AdminCertificateLogs({
                       <td data-label="Origin & Device">
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                           <code style={{ fontSize: '11px', color: 'var(--adm-muted)' }}>{log.ip_address}</code>
-                          <span
-                            style={{
-                              fontSize: '10.5px',
-                              color: 'var(--adm-muted)',
-                              maxWidth: '180px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                            title={log.user_agent}
-                          >
-                            {log.user_agent}
-                          </span>
+                          {log.user_agent && !log.user_agent.toLowerCase().includes('mozilla') && log.user_agent !== 'Browser' && (
+                            <span
+                              style={{
+                                fontSize: '10.5px',
+                                color: 'var(--adm-muted)',
+                                maxWidth: '180px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                              title={log.user_agent}
+                            >
+                              {log.user_agent}
+                            </span>
+                          )}
                         </div>
                       </td>
 
@@ -454,24 +451,8 @@ function formatDateTime(iso: string): string {
       dateStyle: 'medium',
       timeStyle: 'short',
       timeZone: 'UTC',
-    }).format(d) + ' UTC'
+    }).format(d)
   } catch {
     return iso
-  }
-}
-
-function formatRelative(iso: string): string {
-  try {
-    const diffMs = Date.now() - new Date(iso).getTime()
-    const diffSec = Math.floor(diffMs / 1000)
-    if (diffSec < 60) return `${diffSec}s ago`
-    const diffMin = Math.floor(diffSec / 60)
-    if (diffMin < 60) return `${diffMin}m ago`
-    const diffHrs = Math.floor(diffMin / 60)
-    if (diffHrs < 24) return `${diffHrs}h ago`
-    const diffDays = Math.floor(diffHrs / 24)
-    return `${diffDays}d ago`
-  } catch {
-    return ''
   }
 }
