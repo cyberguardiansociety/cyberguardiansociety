@@ -3,6 +3,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  // Track security upgrades of Next.js in development.
+  experimental: {
+    agentUpgrade: 'security',
+  },
   images: {
     remotePatterns: [
       ...(process.env.NODE_ENV === 'development'
