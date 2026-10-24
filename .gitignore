@@ -61,6 +61,10 @@ yarn-error.log*
 # uploaded public content images are created at runtime
 /public/uploads/
 
+# runtime-generated certificates and status
+/generated_certificates/
+/certificate_status.json
+
 # editors
 .idea/
 .vscode/
