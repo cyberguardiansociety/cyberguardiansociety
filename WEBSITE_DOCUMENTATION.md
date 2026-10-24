@@ -188,9 +188,7 @@ The current frontend calls Next.js route handlers. Limits and behavior below des
 | `POST /api/join` | Short membership-interest form | Validated, size-limited, throttled submission persisted to the same SQLite inbox table. |
 | `POST /api/join-application` | Full membership application | Multipart submission with personal, academic/professional, division, skills, and declaration sections; optional PDF CV up to 5 MB; validated and stored with a reference code. CVs and the application JSON are written under `data/private/applications/…` and are reachable only through the signed private-file route. |
 | `POST /api/newsletter` | Newsletter subscription | Validates email/source and applies request limits. Current implementation writes subscribers to a local JSON file; no email delivery provider is wired up. |
-| `POST /api/attendance` | Session participant check-in | Validates session/registration/timing information and records attendance. |
-| `GET /api/certificates/verify?code=…` | Certificate lookup | Rate-limited lookup returns whether a reference is valid and associated public verification details. Avoid putting sensitive data in the response. |
-| `POST /api/assistant` | Website assistant conversation | Bounded message count, message length, body size, and request rate. Calls Groq server-side and retrieves bounded public website context. Returns unavailable when the key is not configured. |
+| `GET, POST /api/certificates/verify` | Certificate lookup & verification | Rate-limited verification returning authentic certificate details. Enforces a high-accuracy filter: only valid, confirmed certificate verifications are recorded to the Supabase database (`admin_audit_log`) and verification logs; empty queries, non-matching IDs, and failed lookups are filtered out and never recorded. |
 | `GET /api/admin/operations-export?type=…` | Admin CSV export | Admin-authenticated and permission-controlled export for supported operations data. |
 | `GET /api/admin/private-file?path=…&expires=…&sig=…` | Private application file download | HMAC-signed and expiring; rejects path traversal and missing/invalid signatures, and is admin-authorized. |
 

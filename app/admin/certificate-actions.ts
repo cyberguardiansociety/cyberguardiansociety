@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin, hasAdminPermission } from '@/lib/admin-auth'
-import { clearAllCertificateLogs, deleteCertificateLog } from '@/lib/certificate-logs-store'
+import { clearAllCertificateLogs, deleteCertificateLog, purgeInvalidCertificateLogs } from '@/lib/certificate-logs-store'
 import { logAudit } from '@/lib/supabase/audit'
 
 export async function clearAllCertificateLogsAction(formData: FormData) {
@@ -65,3 +65,29 @@ export async function deleteCertificateLogAction(formData: FormData) {
   revalidatePath('/admin')
   redirect('/admin?view=certificate-logs&status=certificate-log-deleted')
 }
+
+export async function purgeInvalidCertificateLogsAction() {
+  const { user, admin } = await requireAdmin()
+
+  if (admin.role !== 'super_admin' && !hasAdminPermission(admin, 'audit') && !hasAdminPermission(admin, 'sessions')) {
+    redirect('/admin?view=certificate-logs&error=forbidden')
+  }
+
+  const purgedCount = await purgeInvalidCertificateLogs()
+
+  try {
+    await logAudit({
+      actor_id: user.id,
+      action: 'purge_invalid',
+      entity: 'cgs_certificate_logs',
+      entity_id: 'legacy_failed',
+      details: { purged_count: purgedCount, purged_by: user.email },
+    })
+  } catch (err) {
+    console.warn('[Audit Log] Failed to log invalid certificate logs purge:', err)
+  }
+
+  revalidatePath('/admin')
+  redirect('/admin?view=certificate-logs&status=invalid-logs-purged')
+}
+

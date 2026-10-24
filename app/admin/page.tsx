@@ -108,6 +108,7 @@ const operationStatuses: Record<string, string> = {
   'all-registrants-deleted': 'All registrants and associated bookings were permanently removed.',
   'certificate-logs-cleared': 'All certificate verification logs were permanently cleared.',
   'certificate-log-deleted': 'Certificate verification log entry removed.',
+  'invalid-logs-purged': 'Legacy invalid and unverified query entries were purged from the database.',
 }
 
 type SessionRow = {
